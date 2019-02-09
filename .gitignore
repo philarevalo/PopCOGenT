@@ -1,0 +1,5 @@
+slurm*.out
+*/.snakemake/*
+*/tmp/*
+*/output/*
+*/proc/*
