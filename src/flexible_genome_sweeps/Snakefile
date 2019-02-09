@@ -1,0 +1,193 @@
+from snakemake.utils import R
+
+configfile: "config.yaml"
+
+WILDCARDS = glob_wildcards("input/{organism}/clean/{name}.{extension}.{addend}")
+
+lookup = {(o,n):{"e":e, "a":a} for o,n,e,a in zip(WILDCARDS.organism, WILDCARDS.name, WILDCARDS.extension, WILDCARDS.addend)}
+
+rule all:
+    input:
+        "output/pcc/pcc_projection_hyperbolic.csv.0"
+        #expand("output/vib/vib_subcluster.{cluster_id}", cluster_id=range(11,12))
+        #"output/vib/vib_subcluster.0",
+        #"output/vib/vib_subcluster.1",
+        #"output/vib/vib_subcluster.2"
+        #dynamic("output/sulfolobus/sulfolobus_jaccard.csv.{cluster_id}"),
+        #dynamic("output/pseudomonas/pseudomonas_jaccard.csv.{cluster_id}"),
+        #dynamic("output/saureus/saureus_jaccard.csv.{cluster_id}"),
+        #dynamic("output/pylori/pylori_jaccard.csv.{cluster_id}"),
+        #dynamic("output/pcc/pcc_jaccard.csv.{cluster_id}"),
+        #dynamic("output/vib/vib_jaccard.csv.{cluster_id}")
+        #"output/cdiffnoslr014/jaccard.csv"
+        #expand("output/{organism}/jaccard.csv", organism=WILDCARDS.organism)
+
+rule run_prodigal:
+    input:
+        lambda wildcards: "input/%s/clean/%s.%s.%s" % (wildcards.organism, wildcards.name, lookup[(wildcards.organism, wildcards.name)]["e"], lookup[(wildcards.organism, wildcards.name)]["a"])
+    output:
+        faa = "output/{organism}/orfs/{name}_cds_prod.faa",
+        fna = "output/{organism}/orfs/{name}_cds_prod.fna"
+    shell:
+        "{config[prodigal_path]} -i {input} -d {output.fna} -a {output.faa}"
+
+rule orfs_to_fasta_db:
+    input:
+        lambda wildcards: ["output/%s/orfs/%s_cds_prod.faa" % (organism, name) for organism, name in zip(WILDCARDS.organism, WILDCARDS.name) if organism==wildcards.organism]
+    output:
+        "output/{organism}/fasta.db"
+    shell:
+        "cat {input} > {output}"
+
+rule run_mmseqs:
+    input:
+        rules.orfs_to_fasta_db.output
+    output:
+        mmseqs_db = "output/{organism}/clusters/DB",
+        clusters = "output/{organism}/clusters/clu"
+    shell:
+        """
+        mkdir -p ./tmp_{wildcards.organism}/;
+        rm -rf ./tmp_{wildcards.organism}/*;
+        mmseqs createdb {input} {output.mmseqs_db};
+        mmseqs linclust {output.mmseqs_db} {output.clusters} ./tmp_{wildcards.organism};
+        """
+rule clusters_to_tsv:
+    input:
+        mmseqs_db = rules.run_mmseqs.output.mmseqs_db,
+        clusters = rules.run_mmseqs.output.clusters
+    output:
+        clusters = "output/{organism}/clusters/clusters.tsv"
+    shell:
+        "mmseqs createtsv {input.mmseqs_db} {input.mmseqs_db} {input.clusters} {output}"
+
+rule clusters_to_pandas:
+    input:
+        clusters = rules.clusters_to_tsv.output.clusters
+    output:
+        pandas = "output/{organism}/pandas.csv"
+    run:
+        import pandas as pd
+
+        clusters = {}
+        with open(input.clusters, "r") as f:
+            for line in f:
+                cluster, orf, _ = line.split("\t")
+                strain = orf.split("_")[0]
+                if cluster not in clusters:
+                    clusters[cluster] = {}
+                clusters[cluster][strain] = orf
+        df = pd.DataFrame(clusters).T
+        print(clusters)
+        df.to_csv(output.pandas)
+
+rule cluster_tsv_to_tidy:
+    input:
+        clusters = rules.clusters_to_tsv.output.clusters
+    output:
+        master_presence_absence = "output/{organism}/master_presence_absence.csv",
+        flexible_presence_absence = "output/{organism}/flexible_presence_absence.csv"
+    run:
+        R("""
+        .libPaths(.libPaths()[2])
+        library(dplyr)
+        library(tidyr)
+        library(stringr)
+        gene_df <- read.csv("{input.clusters}",sep="\t", header=FALSE)
+        gene_df <- gene_df[1:2]
+        colnames(gene_df) <- c("cluster","member")
+
+        presence_absence <- gene_df %>%
+            extract(member, c("strain", "orf"), "(.*?)_([:digit:]?_?[[:digit:]]+_[[:digit:]]+)$") %>%
+            select(c(strain, cluster)) %>%
+            mutate(yes=1) %>%
+            distinct() %>%
+            group_by(strain) %>%
+            spread(cluster, yes) %>%
+            mutate_each(funs(ifelse(is.na(.), 0, .))) %>%
+            as.data.frame()
+
+        rownames(presence_absence) <- presence_absence$strain
+        presence_absence <- presence_absence[,-1]
+        write.csv(presence_absence, file="{output.master_presence_absence}")
+        flexible_presence_absence <- t(presence_absence)
+        flexible_presence_absence <- presence_absence[rowSums(presence_absence) <= ncol(presence_absence)-1,]
+        flexible_presence_absence <- flexible_presence_absence[rowSums(flexible_presence_absence) > 2,]
+        flexible_presence_absence <- t(flexible_presence_absence)
+        write.csv(flexible_presence_absence, file="{output.flexible_presence_absence}")
+        """)
+
+rule knit_report:
+    input:
+        master_presence_absence = "output/{organism}/master_presence_absence.csv",
+        rmd = "flexible_report.Rmd",
+        clusters = "input/{organism}/clusters.txt"
+    output:
+        html = "output/{organism}_report.html"
+    run:
+        R("""
+        library(knitr)
+        library(markdown)
+        organism = "{wildcards.organism}"
+        path_to_matrix = "{input.master_presence_absence}"
+        path_to_clusters = "{input.clusters}"
+        knit2html("{input.rmd}", output = "{output.html}", force_v1 = TRUE)
+        """)
+
+rule plots_and_jaccard:
+    input:
+        master_presence_absence = "output/{organism}/master_presence_absence.csv",
+        clusters = "input/{organism}/clusters.txt"
+    output:
+        distribution = "output/{organism}_flexible_distribution.png",
+        presence_absence = "output/{organism}_flexible_presence_absence.png",
+        shared = "output/{organism}_flexible_shared.png",
+        jaccard = "output/{organism}/jaccard.csv"
+    script:
+        "plots_and_jaccard.R"
+
+rule plots_and_jaccard_by_cluster:
+    input:
+        master_presence_absence = "output/{organism}/master_presence_absence.csv",
+        clusters = "input/{organism}/clusters.txt.new"
+    output:
+        dynamic("output/{organism}/{organism}_jaccard.csv.{cluster_id}")
+    params:
+        presence_absence = "output/{organism}/{organism}_flexible_presence_absence",
+        shared = "output/{organism}/{organism}_flexible_shared",
+        jaccard = "output/{organism}/{organism}_jaccard.csv"
+    script:
+        "plots_and_jaccard_by_cluster.R"
+
+rule project_bipartite_by_cluster:
+    input:
+        master_presence_absence = "output/{organism}/master_presence_absence.csv",
+        clusters = "input/{organism}/clusters.txt.new"
+    output:
+        dynamic("output/{organism}/{organism}_projection_hyperbolic.csv.{cluster_id}")
+    params:
+        projection_sum = "output/{organism}/{organism}_projection_sum.csv",
+        projection_hyperbolic = "output/{organism}/{organism}_projection_hyperbolic.csv"
+    script:
+        "project_bipartite.R"
+
+rule mcl_subpopulation:
+    input:
+        jaccard = "output/{organism}/{organism}_jaccard.csv.{cluster_id}"
+    output:
+        initial_edgefile = "output/{organism}/{organism}/subcluster/initial_edgefile.{cluster_id}.tsv",
+        loop_edgefile = "output/{organism}/{organism}/subcluster/loop_edgefile.{cluster_id}.tsv",
+        initial_cluster_file = "output/{organism}/{organism}/subcluster/initial_cluster_file.{cluster_id}.tsv",
+        subclusters = "output/{organism}/{organism}_subclusters.{cluster_id}.txt"
+    script:
+        "mcl_subpopulation.py"
+
+rule plot_subclusters:
+    input:
+        master_presence_absence = "output/{organism}/master_presence_absence.csv",
+        clusters = "input/{organism}/clusters.txt.new",
+        subclusters = "output/{organism}/{organism}_subclusters.{cluster_id}.txt"
+    output:
+        plot = "output/{organism}/{organism}_subclusters.{cluster_id}.flexible_shared.png"
+    script:
+        "plot_subclusters.R"

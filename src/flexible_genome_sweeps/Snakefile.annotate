@@ -1,0 +1,36 @@
+configfile: "config.json"
+
+import glob
+import os
+
+def _out_from_in(fn):
+    base = os.path.splitext(os.path.basename(fn))[0]
+    return os.path.join(config["output_annotation_directory"], base + '_cds_prod.faa.tsv')
+
+INPUT_CONTIG_FILES = glob.glob(os.path.join(config["input_contig_directory"],"*" + config["input_contig_file_extenstion"]))
+OUTPUT_FILES = [_out_from_in(fn) for fn in INPUT_CONTIG_FILES]
+
+genbank_files = [os.path.join(config["ORF_directory"], f) for f in ["10N23931JEI91E03_contigs_cds_prod.gff","10N23931JEI91D07_contigs_cds_prod.gff","10N23931JEI91D05_contigs_cds_prod.gff","10N23931JEI91C11_contigs_cds_prod.gff","10N23931JEI91A09_contigs_cds_prod.gff","10N23931JEI92H01_contigs_cds_prod.gff","10N23931JEI91G07_contigs_cds_prod.gff","10N23931JEI91H11_contigs_cds_prod.gff","10N23931JEI91F08_contigs_cds_prod.gff","10N23931JEI91B03_contigs_cds_prod.gff","10N23931JEI92A01_contigs_cds_prod.gff"]]
+
+rule target:
+     input: genbank_files
+
+rule annotate:
+     input: os.path.join(config["clean_ORF_directory"], "{name}_cds_prod.faa")
+     output: os.path.join(config["output_annotation_directory"], "{name}_cds_prod.faa.tsv")
+     shell: 'module load engaging/python/2.7.10; module load engaging/jdk/1.8.0_25; {config[interproscan_path]} -f gff3 -f tsv -f html -f xml -iprlookup -goterms -pathways -d {config[output_annotation_directory]} --tempdir {config[interproscan_tempdir]} -i {input};'
+
+rule clean:
+    input: os.path.join(config["ORF_directory"], "{name}_cds_prod.faa")
+    output: os.path.join(config["clean_ORF_directory"], "{name}_cds_prod.faa")
+    shell: "sed 's/*//g' {input} > {output}"
+
+rule orfs:
+    input: os.path.join(config["input_contig_directory"], "{name}" + config["input_contig_file_extenstion"])
+    output:
+        #fna = os.path.join(config["ORF_directory"], "{name}_cds_prod.fna"),
+        #faa = os.path.join(config["ORF_directory"], "{name}_cds_prod.faa"),
+        gff = os.path.join(config["ORF_directory"], "{name}_cds_prod.gff")
+    shell:
+        "{config[prodigal_path]} -i {input} -f gff -o {output}"
+        # "{config[prodigal_path]} -i {input} -d {output.fna} -a {output.faa} -f gff -o {output}"
