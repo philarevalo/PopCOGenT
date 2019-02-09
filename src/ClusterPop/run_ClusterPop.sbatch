@@ -1,5 +1,8 @@
 #!/bin/bash
-source activate HGT_cluster
+
+sh config.sh
+
+source activate ClusterPop
 source ${mugsy_path}/mugsyenv.sh
 
 if [ ! -d "$temp_script_dir" ]; then
