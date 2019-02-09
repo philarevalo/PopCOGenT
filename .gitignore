@@ -1,5 +1,5 @@
 slurm*.out
-*/.snakemake/*
-*/tmp/*
-*/output/*
-*/proc/*
+.snakemake/
+tmp/
+output/
+proc/
