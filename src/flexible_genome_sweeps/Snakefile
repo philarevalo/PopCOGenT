@@ -3,25 +3,21 @@ import pandas as pd
 
 configfile: "config.yaml"
 
-#WILDCARDS = glob_wildcards("input/genomes/{organism}/{name}.fa.reformatted")
+#WILDCARDS = glob_wildcards("input/genomes/{organism}/{name}.fasta")
 
 def get_strains(wildcards):
     df = pd.read_csv("input/predicted_clusters/%s_0.000355362.txt.cluster.tab.txt" % wildcards.organism,
-                     sep="\t",
-                     names=["Strain", 
-                            "Cluster_ID",
-                            "Main_cluster",
-                            "Sub_cluster",
-                            "Clonal_complex"])
-    strains = list(df.groupby('Clonal_complex').first()['Strain'])
+                     sep="\t")
+    strains = list(df.groupby("Clonal_complex").first()["Strain"])
     return strains
 
 localrules: all, clean, core_genes
 
 rule all:
     input:
-        "output/Ruminococcus/master_presence_absence.csv"
-        "output/Ruminococcus/Ruminococcus.orfs.csv"
+        "output/Ruminococcus/master_presence_absence.csv",
+        "output/Ruminococcus/Ruminococcus.orfs.csv",
+        "output/Ruminococcus/Ruminococcus.annotations.csv"
 
 localrules:
     target, clean
@@ -68,7 +64,7 @@ rule parse_orfs:
     output:
         csv = "output/{organism}/{organism}.orfs.csv"
     script:
-        "scripts/parse_orfs.py"
+        "parse_orfs.py"
 
 rule run_mmseqs:
     input:
@@ -115,6 +111,12 @@ rule cluster_tsv_to_tidy:
         write_csv(presence_absence, path="{output.presence_absence_long}")
         """)
 
-
+rule combine_annotations:
+    input:
+        lambda wildcards: ["output/%s/annotations/%s_cds_prod.faa.tsv" % (wildcards.organism, name) for name in get_strains(wildcards)]
+    output:
+        strain_dataframe = "output/{organism}/{organism}.annotations.csv"
+    script:
+        "scripts/all_annotations.R"
 
 
