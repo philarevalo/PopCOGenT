@@ -1,38 +1,23 @@
 import os
+import sys
 ###########   USER DEFINED VARIABLES   #############
 project_dir = ""
 contig_extension = ""
 strain_list_file = ""
 output_prefix = ""
 
-parameter_file = open("phybreak_parameters.txt","r")
-for line in parameter_file:
-	line = line.strip().split(" = ")
-	if len(line) > 1:
-		if line[0] == "project_dir":
-			project_dir = line[1].split(" #")[0]
-		elif line[0] == "contig_extension":
-			contig_extension = line[1].split(" #")[0]
-		elif line[0] == "strain_list_file":
-			strain_list_file = line[1].split(" #")[0]
-		elif line[0] == "output_prefix":
-			output_prefix = line[1].split(" #")[0]
-		# elif line[0] == "contig_dir":
-		# 	contig_dir = line[1].split(" #")[0]
-		# elif line[0] == "pop_infile_name":
-		# 	pop_infile_name = line[1].split(" #")[0]
-		# elif line[0] == "ref_iso":
-		# 	ref_iso = line[1].split(" #")[0]
-		# elif line[0] == "ref_contig":
-		# 	ref_contig = line[1].split(" #")[0]
-		# elif line[0] == "len_block_threshold":
-		# 	len_block_threshold = int(line[1].split(" #")[0])
-		# elif line[0] == "gap_prop_thresh":
-		# 	gap_prop_thresh = float(line[1].split(" #")[0])
-		# elif line[0] == "window_size":
-		# 	window_size = int(line[1].split(" #")[0])
-parameter_file.close()
-
+with open("phybreak_parameters.txt","r") as parameter_file:
+	for line in parameter_file:
+		line = line.strip().split(" = ")
+		if len(line) > 1:
+			if line[0] == "project_dir":
+				project_dir = line[1].split(" #")[0]
+			elif line[0] == "contig_extension":
+				contig_extension = line[1].split(" #")[0]
+			elif line[0] == "strain_list_file":
+				strain_list_file = line[1].split(" #")[0]
+			elif line[0] == "output_prefix":
+				output_prefix = line[1].split(" #")[0]
 input_dir = project_dir+"align/"
 alignment_dir = input_dir+"alignment_blocks/"
 phy_split_dir = input_dir+"phy_split/"
@@ -87,46 +72,45 @@ def fasta_2_phylip(seqs_dict,window_size):
 	return outseq
 
 #############   MAIN   #############
-import os
-import sys
+
 if os.path.isdir(phy_split_dir) == False:
 	os.makedirs(phy_split_dir)
 
 #store MSA in dictionary
-msa = open(input_dir+MSA_name,"r")
-seq_dict = {}
-head = ""
-for line in msa:
-    line = line.strip()
-    if line[0] == ">":
-        head = line[1:len(line)]
-    else:
-        try:
-            seq_dict[head] += line
-        except:
-            seq_dict[head] = line
-msa.close()
+with open(input_dir+MSA_name,"r") as msa:
+	seq_dict = {}
+	head = ""
+	for line in msa:
+	    line = line.strip()
+	    if line[0] == ">":
+	        head = line[1:len(line)]
+	    else:
+	        try:
+	            seq_dict[head] += line
+	        except:
+	            seq_dict[head] = line
 msa_len = len(seq_dict[head])
+
 print("Done storing MSA")
 
 #find locations of blocks in alignment
-block_file = open(input_dir+block_loc,"r")
-break_list = []
-a = 0
-for line in block_file:
-	a += 1
-	if a > 1:
-		line = line.strip().split("\t")
-		break_list.append(int(line[3]))
+with open(input_dir + block_loc,"r") as block_file:
+	break_list = []
+	a = 0
+	for line in block_file:
+		a += 1
+		if a > 1:
+			line = line.strip().split("\t")
+			break_list.append(int(line[3]))
 print("Done storing LCA locations")
 
 #store locations of SNPs in dictionary
-SNPfile = open(input_dir+snp_loc_file,"r")
-snp_dict = {}
-for line in SNPfile:
-	line = line.strip().split("\t")
-	snp_dict[int(line[0])] = int(line[1])
-SNPfile.close()
+with open(input_dir+snp_loc_file,"r") as SNPfile:
+	snp_dict = {}
+	for line in SNPfile:
+		line = line.strip().split("\t")
+		snp_dict[int(line[0])] = int(line[1])
+
 total_snps = len(snp_dict)
 print("Done storing SNP locations")
 
@@ -165,6 +149,10 @@ while end < total_snps-window_size:
 		end += overlap
 		tree_count += 1
 
+		# writes out alignment windows individually
+		with open(phy_split_dir + phy_prefix + "." + str(tree_count) + "window.phy", "w") as window_out:
+			window_out.write(phylip_seq)
+
 		if tree_count == 1:
 			outfile = open(phy_split_dir+phy_prefix+"."+str(phy_num)+".phy","w")
 			outfile.write(phylip_seq)
@@ -183,12 +171,12 @@ while end < total_snps-window_size:
 			
 			treeloc.write(str(tree_count) +"\t"+ str(strt) +"\t"+ str(stp)+"\n")
 			treeloc = open(phy_split_dir+phy_prefix+"."+str(phy_num)+".treeloc.txt","w")
-			#tree_count += 1
+
 		else:
 			outfile.write(phylip_seq)
 			treeloc.write(str(tree_count) +"\t"+ str(strt) +"\t"+ str(stp)+"\n")
 			phy_count[phy_num] += 1
-			#tree_count += 1
+
 	else:
 		end += 1
 outfile.close()
@@ -197,11 +185,10 @@ treeloc.close()
 #write SLURM files for phyML job sbatch
 for num in phy_count:
 	count = str(phy_count[num])
-	phyml_sh = open(project_dir+phy_prefix+"."+str(num)+".phyML.sh","w")
-	phy_line = phyML_loc+"-i "+phy_split_dir+phy_prefix+"."+str(num)+".phy -n " +count+ " "
-	phy_line += phyML_properties +" > "+phy_split_dir+phy_prefix+"."+str(num)+".phy_phyml_stat.txt\n"
-	phyml_sh.write(slurm_prefix+phy_line)
-	phyml_sh.close()
+	with open(project_dir+phy_prefix+"."+str(num)+".phyML.sh","w") as phyml_sh:
+		phy_line = phyML_loc+"-i "+phy_split_dir+phy_prefix+"."+str(num)+".phy -n " +count+ " "
+		phy_line += phyML_properties +" > "+phy_split_dir+phy_prefix+"."+str(num)+".phy_phyml_stat.txt\n"
+		phyml_sh.write(slurm_prefix+phy_line)
 	command = "sbatch "+project_dir+phy_prefix+"."+str(num)+".phyML.sh"
 	os.system(command)
 

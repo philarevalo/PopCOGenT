@@ -23,18 +23,6 @@ for line in parameter_file:
 			pop_infile_name = line[1].split(" #")[0]
 		elif line[0] == "output_prefix":
 			output_prefix = line[1].split(" #")[0]
-		# elif line[0] == "contig_dir":
-		# 	contig_dir = line[1].split(" #")[0]
-		# elif line[0] == "ref_iso":
-		# 	ref_iso = line[1].split(" #")[0]
-		# elif line[0] == "ref_contig":
-		# 	ref_contig = line[1].split(" #")[0]
-		# elif line[0] == "len_block_threshold":
-		# 	len_block_threshold = int(line[1].split(" #")[0])
-		# elif line[0] == "gap_prop_thresh":
-		# 	gap_prop_thresh = float(line[1].split(" #")[0])
-		# elif line[0] == "window_size":
-		# 	window_size = int(line[1].split(" #")[0])
 parameter_file.close()
 
 percentile_threshold = 0.05
@@ -117,15 +105,6 @@ for line in pop_infile:
 	pop_list.append(pop)
 pop_infile.close()
 pop_list = list(set(pop_list))
-
-##Collect sums of all trees
-# infile = open(input_dir+output_prefix+".core.phyml_tree_info.txt","r")
-# branch_sum_dict = {}
-# for line in infile:
-# 	tree = line.strip().split("\t")[5]
-# 	tree_no = line.strip().split("\t")[0]
-# 	branch_sum_dict[tree_no] = tree_dist_sum(tree)
-# infile.close()
 
 ##collate the distances in the leaf_dist output file
 
@@ -244,110 +223,3 @@ for j in range(1,last_tree_no+1): # in dist_dict:
 		outfile.write("\t0")
 	outfile.write("\n")
 outfile.close()
-outfile = open(input_dir+"max_distsum.txt","w")
-for pop in max_dist_counted:
-	outfile.write(pop +"\t"+ str(max_dist_counted[pop])+"\n")
-outfile.close()
-print("Found "+str(len(physplit_trees))+" trees that pass reduced diversity and monophyly tests")
-del dict_collect
-del dist_dict
-del max_dist_dict
-del mono_phy_dict
-del all_pairwise_sum
-
-##Collect tree locations in the MSA
-infile = open(input_dir+output_prefix+".core.phyml_tree_info.txt","r")
-tree_loc_info = {}
-for line in infile:
-	line = line.strip().split("\t")
-	tree_no = line[0]
-	msa_start = int(line[1])
-	msa_stop = int(line[2])
-	tree_loc_info[tree_no] = (msa_start,msa_stop)
-infile.close()
-
-## Find regions that are most strongly divergent between populations
-physplit_ranges = {}
-range_num = 0
-physplit_tree_count = 0
-first_tree = ''
-prev_stop = 0.0
-prev_tree = ''
-for i in range(1,last_tree_no+1):
-	tree_no = str(i)
-	msa_start = tree_loc_info[tree_no][0]
-	msa_stop = tree_loc_info[tree_no][1]
-	if tree_no not in physplit_trees or msa_start > prev_stop:
-		prev_tree_status = False
-		if physplit_tree_count >= min_physplit_window_size:
-			range_num += 1
-			physplit_ranges[range_num] = (first_tree,prev_tree)
-
-			first_tree = ''
-			physplit_tree_count = 0
-		elif physplit_tree_count < min_physplit_window_size:
-			first_tree = ''
-			physplit_tree_count = 0
-		if tree_no in physplit_trees:
-			first_tree = tree_no
-			physplit_tree_count = 1
-			prev_tree_status = True
-	elif tree_no in physplit_trees:
-		if prev_tree_status == True:
-			physplit_tree_count += 1
-			prev_tree_status = True
-		else:
-			first_tree = tree_no
-			physplit_tree_count = 1
-			prev_tree_status = True
-	#print(tree_no+"\t"+str(prev_tree_status)+"\t"+str(physplit_tree_count))
-	prev_stop = msa_stop
-	prev_tree = tree_no
-
-
-##Store MSA in dictionary
-infile = open(input_dir+MSA_name,"r")
-head = ''
-seq_dict = {}
-for line in infile:
-	line = line.strip()
-	if line[0] == ">":
-		head = line[1:len(line)]
-	else:
-		seq_dict[head] = line
-infile.close()
-
-
-if os.path.isdir(msa_out_dir) == False:
-	os.makedirs(msa_out_dir)
-
-print(physplit_ranges)
-##Write range MSA to file and submit PhyML jobs
-for range_num in physplit_ranges:
-	tree_start = physplit_ranges[range_num][0]
-	tree_stop = physplit_ranges[range_num][1]
-	msa_start = tree_loc_info[tree_start][0]
-	msa_stop = tree_loc_info[tree_stop][1]
-	print(str(range_num)+"\t"+str(msa_start)+"\t"+str(msa_stop))
-	msa_range_length = msa_stop-msa_start+1
-	range_seq_dict = msa_subset(seq_dict,int(msa_start),int(msa_stop))
-	
-	#write MSA subset in fasta format
-	fasta_string = dict_to_fasta(range_seq_dict)
-	outfile = open(msa_out_dir+output_prefix+".block_"+str(range_num)+".fasta","w")
-	outfile.write(fasta_string)
-	outfile.close()
-
-	#write MSA in phylip format and make a slurm file for making a ML tree from that alignment
-	phylip_string = fasta_2_phylip(range_seq_dict,msa_range_length)
-	outfile = open(msa_out_dir+output_prefix+".block_"+str(range_num)+".phy","w")
-	outfile.write(phylip_string)
-	outfile.close()
-	phyml_sh = open(msa_out_dir+output_prefix+".block_"+str(range_num)+".phyML.sh","w")
-	phy_line = phyML_loc+"-i "+msa_out_dir+output_prefix+".block_"+str(range_num)+".phy -n 1 "
-	phy_line += phyML_properties +" > "+msa_out_dir+output_prefix+".block_"+str(range_num)+".phy_phyml_stat.txt\n"
-	phyml_sh.write(slurm_prefix+phy_line)
-	phyml_sh.close()
-	command = "sbatch "+msa_out_dir+output_prefix+".block_"+str(range_num)+".phyML.sh"
-	os.system(command)
-

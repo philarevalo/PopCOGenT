@@ -1,4 +1,6 @@
-##This script consolodates all of the information from MSA_subset_and_writePHY.py
+'''
+This script consolodates and summarizes all of the information from MSA_subset_and_writePHY.py
+'''
 
 ###########   USER DEFINED VARIABLES   #############
 project_dir = ""
@@ -7,7 +9,7 @@ strain_list_file = ""
 output_prefix = ""
 window_size = 0 #number of SNPs to include per tree
 
-parameter_file = open("phybreak_parameters.txt","r")
+with open("phybreak_parameters.txt","r") as paramter_file:
 for line in parameter_file:
     line = line.strip().split(" = ")
     if len(line) > 1:
@@ -21,19 +23,6 @@ for line in parameter_file:
             output_prefix = line[1].split(" #")[0]
         elif line[0] == "window_size":
             window_size = int(line[1].split(" #")[0])
-        # elif line[0] == "ref_iso":
-        #     ref_iso = line[1].split(" #")[0]
-        # elif line[0] == "ref_contig":
-        #     ref_contig = line[1].split(" #")[0]
-        # elif line[0] == "contig_dir":
-        #     contig_dir = line[1].split(" #")[0]
-        # elif line[0] == "pop_infile_name":
-        #     pop_infile_name = line[1].split(" #")[0]
-        # elif line[0] == "len_block_threshold":
-        #     len_block_threshold = int(line[1].split(" #")[0])
-        # elif line[0] == "gap_prop_thresh":
-        #     gap_prop_thresh = float(line[1].split(" #")[0])
-parameter_file.close()
 
 overlap = 1 #number of SNPs to overlap between trees
 total_jobs = 50 #number of jobs generated in last step
@@ -59,7 +48,6 @@ if os.path.isdir(tree_dir) == False:
 ML_dict = {}
 for i in range(0,total_jobs+1):
     subseq = phy_prefix+"."+str(i)
-    #print(subseq)
 
     ##Build dictionary of PhyML  likelihood values
     lkfile = open(phy_split_dir+subseq+".phy_phyml_stat.txt","r")
@@ -108,15 +96,11 @@ for i in range(0,total_jobs+1):
 
 
 ##Write info to single file
-outfile = open(input_dir+phy_prefix+".phyml_tree_info.txt","w")
-for i in range(0,total_jobs+1):
-    subseq = phy_prefix+"."+str(i)
-    for tree_no in range(1,len(ML_dict[subseq])+1):
-        outfile.write(ML_dict[subseq][str(tree_no)]+"\n")
-        #write tree to file
-        tree_num = ML_dict[subseq][str(tree_no)].split("\t")[0]
-        tree_string = ML_dict[subseq][str(tree_no)].split("\t")[5]
-        # tree_outfile = open(tree_dir+str(tree_num)+".nwk","w")
-        # tree_outfile.write(tree_string+"\n")
-        # tree_outfile.close()
-outfile.close()
+
+with open(input_dir+phy_prefix+".phyml_tree_info.txt","w") as outfile:
+    for i in range(0,total_jobs+1):
+        subseq = phy_prefix+"."+str(i)
+        for tree_no in range(1,len(ML_dict[subseq])+1):
+            outfile.write(ML_dict[subseq][str(tree_no)]+"\n")
+            #tree_num = ML_dict[subseq][str(tree_no)].split("\t")[0]
+            #tree_string = ML_dict[subseq][str(tree_no)].split("\t")[5]

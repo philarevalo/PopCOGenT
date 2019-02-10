@@ -1,6 +1,11 @@
-#This script converts a .maf file to a fasta formatted alignment, INCLUDING
-#all blocks not shared by all genomes in the alignment, but shared by two or
-#more genomes
+'''
+Converts .maf file to fasta-formatted alignment. Includes all alignment blocks
+shared by at least two genomes.
+'''
+import os
+import sys
+
+
 project_dir = ""
 contig_extension = ""
 strain_list_file = ""
@@ -10,33 +15,26 @@ ref_contig = ''
 len_block_threshold = 0
 gap_prop_thresh = 0.0
 
-parameter_file = open("phybreak_parameters.txt","r")
-for line in parameter_file:
-	line = line.strip().split(" = ")
-	if len(line) > 1:
-		if line[0] == "project_dir":
-			project_dir = line[1].split(" #")[0]
-		elif line[0] == "contig_extension":
-			contig_extension = line[1].split(" #")[0]
-		elif line[0] == "strain_list_file":
-			strain_list_file = line[1].split(" #")[0]
-		elif line[0] == "output_prefix":
-			output_prefix = line[1].split(" #")[0]
-		elif line[0] == "ref_iso":
-			ref_iso = line[1].split(" #")[0]
-		elif line[0] == "ref_contig":
-			ref_contig = line[1].split(" #")[0]
-		elif line[0] == "len_block_threshold":
-			len_block_threshold = int(line[1].split(" #")[0])
-		elif line[0] == "gap_prop_thresh":
-			gap_prop_thresh = float(line[1].split(" #")[0])
-		# elif line[0] == "pop_infile_name":
-		# 	pop_infile_name = line[1].split(" #")[0]
-		# elif line[0] == "window_size":
-		# 	window_size = int(line[1].split(" #")[0])
-		# elif line[0] == "contig_dir":
-		# 	contig_dir = line[1].split(" #")[0]
-parameter_file.close()
+with open("phybreak_parameters.txt","r") as paramter_file:
+	for line in parameter_file:
+		line = line.strip().split(" = ")
+		if len(line) > 1:
+			if line[0] == "project_dir":
+				project_dir = line[1].split(" #")[0]
+			elif line[0] == "contig_extension":
+				contig_extension = line[1].split(" #")[0]
+			elif line[0] == "strain_list_file":
+				strain_list_file = line[1].split(" #")[0]
+			elif line[0] == "output_prefix":
+				output_prefix = line[1].split(" #")[0]
+			elif line[0] == "ref_iso":
+				ref_iso = line[1].split(" #")[0]
+			elif line[0] == "ref_contig":
+				ref_contig = line[1].split(" #")[0]
+			elif line[0] == "len_block_threshold":
+				len_block_threshold = int(line[1].split(" #")[0])
+			elif line[0] == "gap_prop_thresh":
+				gap_prop_thresh = float(line[1].split(" #")[0])
 
 input_dir = project_dir+"align/"
 alignment_dir = input_dir+"alignment_blocks/"
@@ -58,7 +56,7 @@ def poly_count(msa_dict,loc):
 	return poly
 
 def remove_N_only_gaps(msa_dict):
-	nt_dict = {}#{'N':0,'-':0}
+	nt_dict = {} #{'N':0,'-':0}
 	for strain in msa_dict:
 		seq = msa_dict[strain]
 		for i in range(0,len(seq)):
@@ -89,23 +87,19 @@ def remove_N_only_gaps(msa_dict):
 				out_dict[strain] += seq[i]
 
 	return out_dict
+
 #################   MAIN   #################
-import os
-import sys
+
 if os.path.isdir(alignment_dir) == False:
 	os.makedirs(alignment_dir)
 
-
 #make list of strains
-infile = open(project_dir+strain_list_file,"r")
-isolist = []
-for line in infile:
-	line = line.strip()
-	#line = line + contig_extension
-	#line = line.replace("-","")
-	isolist.append(line)
-infile.close()
-
+with open(project_dir+strain_list_file) as infile:
+	isolist = []
+	for line in infile:
+	    line = line.strip()
+	    line = line + contig_extension
+	    isolist.append(line)
 
 
 num = 0
@@ -169,9 +163,11 @@ for line in infile:
 			ref_order.append(tup)
 ref_order.sort()
 #print(len(seqdict[ref_iso]))
+
 #remove sites that contain either only Ns, or sequence from a single genome
 for label in seqdict:
 	seqdict[label] = remove_N_only_gaps(seqdict[label])
+
 #filter the alignment blocks to remove short blocks and blocks with high number
 #of gaps, then remove all gap containing columns from the sequence alignments
 
@@ -228,8 +224,6 @@ for label in use_labels:
 			if len(nt) > 1:
 				snpcount += 1
 	label_sizes[label]["SNPcount"] = snpcount
-	#print(str(label)+"\t"+str(snpcount))
-
 
 print("Done finding gap-columns and counting SNPs")
 
@@ -275,83 +269,79 @@ del temp_use_labels
 #make the full, degapped sequences and write the start:stop location of each block in the sequence
 full_seqdict = {}
 loc = 0
-block_loc = open(input_dir+output_prefix+".block_location.txt","w")
-block_loc.write("Label\tStart\tLocation_in_block_start\tLocation_in_block_stop\n")
-for iso in degap_seqdict:
-	for i in range(0,len(ref_order)):
-		label = ref_order[i][1]
-		start = ref_order[i][0]
-		if label in use_labels:
-			seq = degap_seqdict[iso][label]
-			try:
-				full_seqdict[iso] += seq
-			except:
-				full_seqdict[iso] = seq
-			if iso == ref_iso:
-				block_loc.write(str(label) +"\t"+ str(start) +"\t"+ str(loc) +"\t"+ str(loc+len(seq)) +"\n")
-				loc = loc+len(seq)
-block_loc.close()
+with open(input_dir + output_prefix + ".block_location.txt", "w") as block_loc:
+	block_loc.write("Label\tStart\tLocation_in_block_start\tLocation_in_block_stop\n")
+	for iso in degap_seqdict:
+		for i in range(0,len(ref_order)):
+			label = ref_order[i][1]
+			start = ref_order[i][0]
+			if label in use_labels:
+				seq = degap_seqdict[iso][label]
+				try:
+					full_seqdict[iso] += seq
+				except:
+					full_seqdict[iso] = seq
+				if iso == ref_iso:
+					block_loc.write(str(label) +"\t"+ str(start) +"\t"+ str(loc) +"\t"+ str(loc+len(seq)) +"\n")
+					loc = loc+len(seq)
 
 #write the full, degapped sequences
-corefile = open(input_dir+output_prefix+".core.fasta","w")
-for k in range(0,len(isolist)):
-	iso = isolist[k]
-	corefile.write(">"+iso +"\n"+ full_seqdict[iso] +"\n")
-corefile.close()
-
+with open(input_dir + output_prefix + ".core.fasta","w") as corefile:
+	for k in range(0,len(isolist)):
+		iso = isolist[k]
+		corefile.write(">"+iso +"\n"+ full_seqdict[iso] +"\n")
+	
 
 #Write all of the blocks to separate files and write the block statistics
-block_size = open(input_dir+output_prefix+".alignment_block_sizes.txt","w")
-block_size.write("Label\tStart\tlen_ref_seq\tlen_gapless_ref_seq\tProp_gaps\tSNP_count\n")
-
-for i in range(0,len(ref_order)):
-	label = ref_order[i][1]
-	if label in use_labels:
-		start = ref_order[i][0]
-		len_ref_seq = float(label_sizes[label]["raw"])
-		len_gapless_ref_seq = float(label_sizes[label]["degap"])
-		prop_gap = 1.0-round((len_gapless_ref_seq/len_ref_seq),4)
-		SNPcount = label_sizes[label]["SNPcount"]
-		block_size.write(str(label)+"\t"+str(start)+"\t"+str(len_ref_seq)+"\t"+str(len_gapless_ref_seq)+"\t"+str(prop_gap)+"\t"+str(SNPcount)+"\n")
-		outfile = open(alignment_dir+output_prefix+"."+str(label)+"."+str(start)+".fasta","w")
-		for iso in degap_seqdict:
-			degapseq = degap_seqdict[iso][label]
-			outfile.write(">"+iso+"\n"+degapseq+"\n")
-block_size.close()
-outfile.close()
+with open(input_dir+output_prefix+".alignment_block_sizes.txt","w") as block_size:
+	block_size.write("Label\tStart\tlen_ref_seq\tlen_gapless_ref_seq\tProp_gaps\tSNP_count\n")
+	for i in range(0,len(ref_order)):
+		label = ref_order[i][1]
+		if label in use_labels:
+			start = ref_order[i][0]
+			len_ref_seq = float(label_sizes[label]["raw"])
+			len_gapless_ref_seq = float(label_sizes[label]["degap"])
+			prop_gap = 1.0-round((len_gapless_ref_seq/len_ref_seq),4)
+			SNPcount = label_sizes[label]["SNPcount"]
+			block_size.write(str(label)+"\t"+str(start)+"\t"+str(len_ref_seq)+"\t"+str(len_gapless_ref_seq)+"\t"+str(prop_gap)+"\t"+str(SNPcount)+"\n")
+			outfile = open(alignment_dir+output_prefix+"."+str(label)+"."+str(start)+".fasta","w")
+			for iso in degap_seqdict:
+				degapseq = degap_seqdict[iso][label]
+				outfile.write(">"+iso+"\n"+degapseq+"\n")
+	outfile.close()
 print("Done. Finding SNP locations")
 
 #store MSA in dictionary
 msa_name = output_prefix+".core.fasta"
 snp_loc_file = output_prefix+".core.SNPloc.txt"
-msa = open(input_dir+msa_name,"r")
-seq_dict = {}
-head = ""
-for line in msa:
-	line = line.strip()
-	if line[0] == ">":
-		head = line[1:len(line)]
-	else:
-		line = line.replace('a','A')
-		line = line.replace('c','C')
-		line = line.replace('g','G')
-		line = line.replace('t','T')
-		line = line.replace('n','N')
-		try:
-			seq_dict[head] += line
-		except:
-			seq_dict[head] = line
-msa.close()
+with open(input_dir+msa_name,"r") as msa:
+	seq_dict = {}
+	head = ""
+	for line in msa:
+		line = line.strip()
+		if line[0] == ">":
+			head = line[1:len(line)]
+		else:
+			line = line.replace('a','A')
+			line = line.replace('c','C')
+			line = line.replace('g','G')
+			line = line.replace('t','T')
+			line = line.replace('n','N')
+			try:
+				seq_dict[head] += line
+			except:
+				seq_dict[head] = line
+				
 msa_len = len(seq_dict[head])
 
 #Find all SNP containing columns in the MSA
 snp_loc_list = []
-outfile = open(input_dir+snp_loc_file,"w")
-snp_num = 0
-for i in range(0,msa_len):
-	poly = poly_count(seq_dict,i)
-	if poly > 1:
-		outfile.write(str(snp_num) +"\t"+ str(i) +"\t"+ str(poly) +"\n")
-		snp_num += 1
-outfile.close()
+with open(input_dir+snp_loc_file,"w") as outfile:
+	snp_num = 0
+	for i in range(0,msa_len):
+		poly = poly_count(seq_dict,i)
+		if poly > 1:
+			outfile.write(str(snp_num) +"\t"+ str(i) +"\t"+ str(poly) +"\n")
+			snp_num += 1
+
 
