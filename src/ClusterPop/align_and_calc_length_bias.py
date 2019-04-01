@@ -3,10 +3,12 @@ import random
 import string
 import glob
 from Bio import SeqIO
-import itertools
+from itertools import combinations
 import os
 import time
 from collections import defaultdict
+from joblib import Parallel, delayed
+from shutil import copyfile
 
 
 def main():
@@ -14,6 +16,13 @@ def main():
         description=('Align contigs in a job array'),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    parser.add_argument('--slurm',
+                        default=False,
+                        action='store_true')
+    parser.add_argument('--num_threads',
+                        default=1,
+                        type=int,
+                        help='number of threads to run in parallel for single-machine use (i.e., not slurm)')
     parser.add_argument('--genome_dir',
                         default=None,
                         type=str,
@@ -68,7 +77,7 @@ def main():
                         help='Directory for final output.')
 
     args = parser.parse_args()
-
+    print(args.slurm)
     check_inputs(args)
 
     contig_file_list = glob.glob('{contigdir}/*{extension}'.format(contigdir=args.genome_dir,
@@ -76,47 +85,57 @@ def main():
     print('Renaming genome files')
     renamed_contig_files = rename_files(contig_file_list)
 
-    print('Making shell files.')
-    final_simfile_list, final_scriptfile_list = make_shell_files(renamed_contig_files,
-                                                                 args.utility_path,
-                                                                 args.alignment_dir,
-                                                                 args.mugsy_path,
-                                                                 args.temp_script_dir)
+    if args.slurm:
 
-    print('Aligning contigs')
-    align_array(args.temp_script_dir,
-                args.slurm_output_dir,
-                args.cluster_username,
-                args.partition_name,
-                final_scriptfile_list,
-                maxjobs=args.max_jobs,
-                jobsubmit=args.max_submit)
+        print('Making shell files.')
+        final_simfile_list, final_scriptfile_list = make_shell_files(renamed_contig_files,
+                                                                     args.utility_path,
+                                                                     args.alignment_dir,
+                                                                     args.mugsy_path,
+                                                                     args.temp_script_dir)
 
-    missing_simfiles = []
-    final_lines = []
-    for simfile in final_simfile_list:
-        try:
-            with open(simfile, 'r') as simfile:
-                final_lines.append(next(simfile))
-        except FileNotFoundError:
-            missing_simfiles.append(simfile)
+        print('Aligning contigs')
+        align_array(args.temp_script_dir,
+                    args.slurm_output_dir,
+                    args.cluster_username,
+                    args.partition_name,
+                    final_scriptfile_list,
+                    maxjobs=args.max_jobs,
+                    jobsubmit=args.max_submit)
 
-    final_outfile_name = '{final_output_dir}/{base_name}_cat_ssd.txt'.format(base_name=args.base_name,
-                                                                             final_output_dir=args.final_output_dir)
-    with open(final_outfile_name, 'w') as outfile:
-        outfile.write('\t'.join(['Strain 1',
-                                 'Strain 2',
-                                 'Initial divergence',
-                                 'Alignment size',
-                                 'Genome 1 size',
-                                 'Genome 2 size',
-                                 'Observed SSD',
-                                 'SSD 95 CI low',
-                                 'SSD 95 CI high\n']))
-        outfile.writelines(final_lines)
-    if missing_simfiles != []:
-        print('WARNING: {num} files were expected but not generated.'.format(num=str(len(missing_simfiles))))
-        print(missing_simfiles)
+        missing_simfiles = []
+        final_lines = []
+        for simfile in final_simfile_list:
+            try:
+                with open(simfile, 'r') as simfile:
+                    final_lines.append(next(simfile))
+            except FileNotFoundError:
+                missing_simfiles.append(simfile)
+
+        final_outfile_name = '{final_output_dir}/{base_name}_cat_ssd.txt'.format(base_name=args.base_name,
+                                                                                 final_output_dir=args.final_output_dir)
+        with open(final_outfile_name, 'w') as outfile:
+            outfile.write('\t'.join(['Strain 1',
+                                     'Strain 2',
+                                     'Initial divergence',
+                                     'Alignment size',
+                                     'Genome 1 size',
+                                     'Genome 2 size',
+                                     'Observed SSD',
+                                     'SSD 95 CI low',
+                                     'SSD 95 CI high\n']))
+            outfile.writelines(final_lines)
+        if missing_simfiles != []:
+            print('WARNING: {num} files were expected but not generated.'.format(num=str(len(missing_simfiles))))
+            print(missing_simfiles)
+    else:
+        # Align with joblib
+
+        # NEED TO TEST THIS
+        alignment_files = Parallel(n_jobs=args.num_threads)(delayed(align_serial)(genomes,
+                                                                                  i,
+                                                                                  args.mugsy_path,
+                                                                                  args.alignment_dir) for i, genomes in enumerate(combinations(contig_file_list, 2)))
 
 
 def check_inputs(args):
@@ -160,7 +179,6 @@ def check_inputs(args):
 
 
 def align_array(array_script_path,
-                slurm_output_dir,
                 username,
                 partition_name,
                 scriptfile_list,
@@ -195,6 +213,45 @@ def align_array(array_script_path,
     while not check_queue(random_job_name, username, 0, 0):
         time.sleep(60)
 
+def align_serial(genomes
+                 random_seed,
+                 mugsy_path,
+                 alignment_dir):
+    '''
+    Runs alignment serially. This works on engaging, need to test on mac.
+    '''
+    genome_1, genome_2 = genomes
+    # gets strain names, assumes that genome files are named such that strain names are the file name without extension
+    strain1 = os.path.splitext(os.path.basename(genome_1))[0]
+    strain2 = os.path.splitext(os.path.basename(genome_2))[0]
+
+    # reset random seed
+    random.seed(random_seed)
+
+    # makes random name for contig files because of strange behavior with mugsy in parallel
+    out_id_1 = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for i in range(8))
+    out_id_2 = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for i in range(8)) 
+    prefix = out_id_1 + out_id_2
+    correct_name = '{strain1}_@_{strain2}.maf'.format(strain1=strain1, 
+                                                      strain2=strain2) 
+
+    copyfile(genome_1, out_id_1  + '.fasta')
+    copyfile(genome_2, out_id_2 + '.fasta')
+
+    os.system('{mugsypath} --directory {align_directory} --prefix {prefix} {randomcontigname1}.fasta {randomcontigname2}.fasta'.format(mugsypath=mugsy_path,
+                                                                                                                           align_directory=alignment_dir,
+                                                                                                                           prefix=prefix,
+                                                                                                                           randomcontigname1=out_id_1,
+                                                                                                                           randomcontigname2=out_id_2))
+    os.remove('{contig}.fasta'.format(contig = out_id_1))
+    os.remove('{contig}.fasta'.format(contig = out_id_2))
+    os.remove('{prefix}.mugsy.log'.format(prefix = prefix))
+    os.rename(alignment_dir + '/' + prefix + '.maf',
+              alignment_dir + '/' + correct_name)
+    return alignment_dir + '/' + correct_name
+
+
+
 
 def make_shell_files(contig_file_list,
                      utility_path,
@@ -205,7 +262,7 @@ def make_shell_files(contig_file_list,
     all_script_files = []
     all_jobscripts = defaultdict(list)
 
-    for i, contig_pair in enumerate(itertools.combinations(contig_file_list, 2)):
+    for i, contig_pair in enumerate(combinations(contig_file_list, 2)):
 
         contig1, contig2 = contig_pair
         strain1 = '.'.join(contig1.split('/')[-1].split('.')[0:-3])
