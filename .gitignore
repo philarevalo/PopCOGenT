@@ -1,4 +1,7 @@
 slurm*.out
+*.mugsy
+*.maf
+*.length_bias.txt
 .snakemake/
 tmp/
 output/
