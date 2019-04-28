@@ -229,17 +229,15 @@ def make_edgefile(infile,
     predict_df['Genome_size'] = trn_table['Larger genome'] / 1e6
     predict_df['constant'] = 1
 
-    #trn_table['Negative selection cutoff'] = linear_model.get_prediction(predict_df).summary_frame(alpha=0.1)['obs_ci_upper']
+    trn_table['Negative selection cutoff'] = linear_model.get_prediction(predict_df).summary_frame(alpha=0.1)['obs_ci_upper']
 
     # Filter negative selection cutoff
-    #if 'pcc' in infile:  # Special code just for the prochlorococcus single cell genomes
-    #    neg_cutoff = 5.0762
-   #if single_cell:  # Special filtering just for single cell genomes
-   #     neg_cutoff = max(trn_table['Negative selection cutoff'])
-    #else:  # Otherwise just use the negative selection index
-     #    neg_cutoff = trn_table['Negative selection cutoff']
+    if single_cell:  # Special filtering just for single cell genomes
+        neg_cutoff = max(trn_table['Negative selection cutoff'])
+    else:  # Otherwise just use the negative selection index
+         neg_cutoff = trn_table['Negative selection cutoff']
 
-    #trn_table = trn_table[trn_table['SSD 95 CI low'] > neg_cutoff]
+    trn_table = trn_table[trn_table['SSD 95 CI low'] > neg_cutoff]
 
     # Find clonal clusters
     clonal_df = trn_table[trn_table['Initial divergence'] < clonal_cutoff][['Strain 1', 'Strain 2']]
