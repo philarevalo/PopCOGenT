@@ -4,6 +4,46 @@ import random
 import string
 from Bio import SeqIO
 from length_bias_functions import *
+from joblib import Parallel, delayed
+import glob
+from itertools import combinations
+
+
+def main():
+    run_on_single_machine(10,
+                         '../../test/',
+                         '.fasta',
+                         '../../test/',
+                         '~/apps/mugsy_trunk/mugsy')
+
+
+
+def run_on_single_machine(threads,
+                          genome_directory,
+                          contig_extension,
+                          alignment_dir,
+                          mugsy_path):
+    pairs_and_seeds = [(g1, g2, random.randint(1, int(1e9))) for g1, g2 in combinations(glob.glob(genome_directory + '*' + contig_extension), 2)]
+    Parallel(n_jobs=threads)(delayed(align_and_calculate_length_bias)(g1, g2, alignment_dir, mugsy_path, seed) for g1, g2, seed in pairs_and_seeds)
+
+def align_and_calculate_length_bias(genome_1_file,
+                                    genome_2_file,
+                                    alignment_dir,
+                                    mugsy_path,
+                                    random_seed):
+    alignment_file = align_genomes(genome_1_file,
+                                   genome_2_file,
+                                   alignment_dir,
+                                   mugsy_path,
+                                   random_seed)
+
+    length_bias_file = alignment_file + '.length_bias.txt'
+    calculate_length_bias(alignment_file,
+                          genome_1_file,
+                          genome_2_file,
+                          length_bias_file)
+    return length_bias_file
+
 
 
 def rename_for_mugsy(genome):
@@ -60,7 +100,7 @@ def align_genomes(contig1,
 
     system('mv {random_alignment_name} {correct_name}'.format(random_alignment_name=alignment_dir+'/'+prefix +'.maf',
                                                               correct_name=alignment_dir+'/'+correct_name))
-    return alignment_dir+'/'+correct_name+'.length_bias.txt'
+    return alignment_dir+'/'+correct_name
 
 def calculate_length_bias(input_alignment,
                           genome_1_file,
@@ -73,8 +113,7 @@ def calculate_length_bias(input_alignment,
 
     edge = get_transfer_measurement(input_alignment,
                                     g1size,
-                                    g2size,
-                                    simulate_transfer)
+                                    g2size)
 
     with open(output_file, 'w') as outfile:
         outfile.write(edge + '\n')
