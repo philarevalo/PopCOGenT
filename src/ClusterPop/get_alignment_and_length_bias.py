@@ -15,25 +15,16 @@ def main():
         description=('Align contigs in a job array'),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument('--slurm',
-                        default=False,
-                        action='store_true')
-    parser.add_argument('--num_threads',
-                        default=1,
-                        type=int,
-                        help='number of threads to run in parallel for single-machine use (i.e., not slurm)')
+
+
     parser.add_argument('--genome_dir',
                         default=None,
                         type=str,
-                        help='Directory containing genome files. Please provide absolute path.')
+                        help='Directory containing genome files.')
     parser.add_argument('--genome_ext',
                         default=None,
                         type=str,
                         help='Extension for genome files (e.g., .fasta')
-    parser.add_argument('--script_dir',
-                        default=None,
-                        type=str,
-                        help='Directory for run scripts.')
     parser.add_argument('--alignment_dir',
                         default=None,
                         type=str,
@@ -46,18 +37,32 @@ def main():
                         default=None,
                         type=str,
                         help='Path to mugsyenv.sh. Please provide absolute path.')
-    parser.add_argument('--source_path',
-                        default=None,
-                        type=str,
-                        help='Path to source scripts. Please provide absolute path.')
+
     parser.add_argument('--base_name',
-                        default=None,
+                        default='output',
                         type=str,
                         help='base output file name')
     parser.add_argument('--final_output_dir',
                         default='./',
                         type=str,
                         help='Directory for final output.')
+
+    parser.add_argument('--num_threads',
+                        default=1,
+                        type=int,
+                        help='number of threads to run in parallel for single-machine use (i.e., not slurm)')
+    
+    parser.add_argument('--slurm',
+                        default=False,
+                        action='store_true')
+    parser.add_argument('--script_dir',
+                        default=None,
+                        type=str,
+                        help='Directory for run scripts. Please provide absolute path. Required for slurm scripts.')
+    parser.add_argument('--source_path',
+                        default=None,
+                        type=str,
+                        help='Path to source scripts. Please provide absolute path. Required for slurm scripts.')
 
     args = parser.parse_args()
     check_inputs(args)
@@ -87,7 +92,8 @@ def main():
                  'SSD 95 CI high']
         rows = [open(f).read().strip().split() for f in length_bias_files]
         df = pd.DataFrame(rows, columns=header)
-        df.to_csv('test.tab.txt', sep='\t', index=False)
+        outfile_name = '{final_output_dir}/{base_name}.length_bias.txt'.format(final_output_dir=args.final_output_dir, base_name=args.base_name)
+        df.to_csv(outfile_name, sep='\t', index=False)
 
 def check_inputs(args):
 
@@ -100,8 +106,13 @@ def check_inputs(args):
 
     # Check for alignment directory. Makes it if it isn't there.
     if not path.exists(args.alignment_dir):
-        print('Slurm output directory does not exist. Creating new directory.')
+        print('Alignment output directory does not exist. Creating new directory.')
         makedirs(args.alignment_dir)
+
+    # Check for final ouput_directory. Makes it if it isn't there.
+    if not path.exists(args.alignment_dir):
+        print('Final output directory does not exist. Creating new directory.')
+        makedirs(args.final_output_dir)
 
     # Checks mugsy path
     if not path.exists(args.mugsy_path):
