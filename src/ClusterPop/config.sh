@@ -1,32 +1,38 @@
+# Base name for final output file
+base_name='sulfolobus'
+
+# Path to mugsy and mugsyenv.sh
+mugsy_path=/home/parevalo/apps/mugsy_trunk/mugsy
+mugsy_env=/home/parevalo/apps/mugsy_trunk/mugsyenv.sh
+
 # Path to genome files
-genome_directory=../../test/ #Insert path to genome files
+genome_dir=../../test/ #Insert path to genome files
 
 # Extension of genome files
-genome_extension=.fasta # insert file extension for genome files in fasta format
+genome_ext=.fasta # insert file extension for genome files in fasta format
 
-# Base name for output files
-base_name=test # Insert base filename identifier here
+# Directory for output alignments. Must provide absolute path.
+alignment_dir=/home/parevalo/testing/${base_name}_ssd_align/
+
+# Output directory for final length bias file
+final_output_dir=./
+
+
+# Are you running on a single machine? Please specify the number of threads
+num_threads=10
 
 # Are you using a slurm environment? Then this should equal --slurm, otherwise, leave as empty quotes.
 slurm_str=''
+# If using slurm, please specify the output directory for the runscripts and source scripts. Absolute paths required.
+script_dir=''
+source_path=''
 
-# Single cell genome flag
-single_cell=""
+source activate HGT_cluster
+source ${mugsy_env}
 
-# Output directory for final length bias file
-final_output_dir=./output/results
+if [ "${slurm_str}" = "" ]
+	then
+		python get_alignment_and_length_bias.py --genome_dir ${genome_dir} --genome_ext ${genome_ext} --alignment_dir ${alignment_dir} --mugsy_path ${mugsy_path} --mugsy_env ${mugsy_env} --base_name ${base_name} --final_output_dir ${final_output_dir} --num_threads ${num_threads}
+fi
 
-# Directories for alignments and runscripts
-temp_script_dir=./output/${base_name}_scripts/
-slurm_output_dir=./output/${base_name}_ssd_slurm/
-alignment_dir=./output/${base_name}_ssd_align/
 
-# SLURM parameters for jobs
-cluster_username= # insert cluster username here
-partition_name= #insert name of partitions here
-max_jobs=100
-max_submit=50
-
-# Path to mugsy
-mugsy_path=./mugsy_trunk/mugsy
-path_to_utilities=./
