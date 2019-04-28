@@ -7,7 +7,7 @@ from collections import defaultdict
 import os
 import glob
 import pandas as pd
-import statsmodels.api as sm
+#import statsmodels.api as sm
 import numpy as np
 
 
@@ -59,7 +59,7 @@ def main():
 
     # Initializing lists and dictionaries
     final_clusters = defaultdict(list)
-    initial_edgefile = '{output_dir}/{base}_{mindiv}.txt'.format(base=outfile_base,
+    initial_edgefile = '{output_dir}\\{base}_{mindiv}.txt'.format(base=outfile_base,
                                                                  mindiv=str(clonal_cutoff),
                                                                  output_dir=output_dir)
     cluster_file = '{initial_edgefile}.cluster.tab.txt'.format(initial_edgefile=initial_edgefile)
@@ -69,8 +69,8 @@ def main():
     make_edgefile(infile,
                   initial_edgefile,
                   clonal_cutoff=clonal_cutoff,
-                  single_cell=single_cell,
-                  linear_model=negative_selection_linear_fit())
+                  single_cell=single_cell)#,
+                  #linear_model=negative_selection_linear_fit())
     G_unclust = nx.read_edgelist(initial_edgefile, data=(('weight', float),))
     nx.write_graphml(G_unclust, graphml_unclust_name)
 
@@ -229,21 +229,22 @@ def make_edgefile(infile,
     predict_df['Genome_size'] = trn_table['Larger genome'] / 1e6
     predict_df['constant'] = 1
 
-    trn_table['Negative selection cutoff'] = linear_model.get_prediction(predict_df).summary_frame(alpha=0.1)['obs_ci_upper']
+    #trn_table['Negative selection cutoff'] = linear_model.get_prediction(predict_df).summary_frame(alpha=0.1)['obs_ci_upper']
 
     # Filter negative selection cutoff
     #if 'pcc' in infile:  # Special code just for the prochlorococcus single cell genomes
     #    neg_cutoff = 5.0762
-    if single_cell:  # Special filtering just for single cell genomes
-        neg_cutoff = max(trn_table['Negative selection cutoff'])
-    else:  # Otherwise just use the negative selection index
-        neg_cutoff = trn_table['Negative selection cutoff']
+   #if single_cell:  # Special filtering just for single cell genomes
+   #     neg_cutoff = max(trn_table['Negative selection cutoff'])
+    #else:  # Otherwise just use the negative selection index
+     #    neg_cutoff = trn_table['Negative selection cutoff']
 
-    trn_table = trn_table[trn_table['SSD 95 CI low'] > neg_cutoff]
+    #trn_table = trn_table[trn_table['SSD 95 CI low'] > neg_cutoff]
 
     # Find clonal clusters
     clonal_df = trn_table[trn_table['Initial divergence'] < clonal_cutoff][['Strain 1', 'Strain 2']]
-    clones = nx.from_pandas_dataframe(clonal_df,
+    print(clonal_df)
+    clones = nx.from_pandas_edgelist(clonal_df,
                                       'Strain 1',
                                       'Strain 2')
     clonal_components = tuple(nx.connected_component_subgraphs(clones))

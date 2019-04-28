@@ -1,11 +1,14 @@
 # Path to genome files
-genome_directory= # Insert path to genome files
+genome_directory=../../test/ #Insert path to genome files
 
 # Extension of genome files
-genome_extension= # insert file extension for genome files in fasta format
+genome_extension=.fasta # insert file extension for genome files in fasta format
 
 # Base name for output files
-base_name= # Insert base filename identifier here
+base_name=test # Insert base filename identifier here
+
+# Are you using a slurm environment? Then this should equal --slurm, otherwise, leave as empty quotes.
+slurm_str=''
 
 # Single cell genome flag
 single_cell=""
@@ -25,5 +28,5 @@ max_jobs=100
 max_submit=50
 
 # Path to mugsy
-mugsy_path=/home/parevalo/apps/mugsy_trunk/mugsy
+mugsy_path=./mugsy_trunk/mugsy
 path_to_utilities=./
