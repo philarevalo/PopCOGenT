@@ -7,7 +7,7 @@ from collections import defaultdict
 import os
 import glob
 import pandas as pd
-#import statsmodels.api as sm
+import statsmodels.api as sm
 import numpy as np
 
 
@@ -16,50 +16,46 @@ def main():
         description=('Clusters genomes based on length bias measurement'),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument('-o', '--outfile_base',
+    parser.add_argument('--base_name',
                         type=str,
                         help='Base name for outfiles')
-    parser.add_argument('-s', '--sim_out_precomputed',
+    parser.add_argument('--length_bias_file',
                         type=str,
                         default=None,
-                        help='Precomputed concatenated simulation file')
-    parser.add_argument('-c', '--clonal_cutoff',
+                        help='Table of length bias measurements.')
+    parser.add_argument('--clonal_cutoff',
                         type=float,
                         default=0.000355362)
-    parser.add_argument('-d', '--output_directory',
+    parser.add_argument('--output_directory',
                         type=str,
                         default='./infomap_temp/',
                         help='Output directory.')
-
     parser.add_argument('--infomap_args',
                         type=str,
                         default='',
                         help='Arguments to pass to infomap command')
-
     parser.add_argument('--infomap_path',
                         type=str,
-                        default='/nobackup1/parevalo/Infomap/Infomap',
+                        default=None,
                         help='Path to infomap binary')
-
-    parser.add_argument('--single_cell', dest='feature', action='store_true')
-    parser.set_defaults(single_cell=False)
+    parser.add_argument('--single_cell', default=False, action='store_true')
     
     # Defining variables from input
     args = parser.parse_args()
 
     # Checks inputs to see if they're valid
     check_inputs(args)
-    infile = args.sim_out_precomputed
+    infile = args.length_bias_file
     infomap_path = args.infomap_path
     infomap_args = args.infomap_args
-    outfile_base = args.outfile_base
+    outfile_base = args.base_name
     clonal_cutoff = args.clonal_cutoff
     output_dir = args.output_directory
     single_cell = args.single_cell
 
     # Initializing lists and dictionaries
     final_clusters = defaultdict(list)
-    initial_edgefile = '{output_dir}\\{base}_{mindiv}.txt'.format(base=outfile_base,
+    initial_edgefile = '{output_dir}/{base}_{mindiv}.txt'.format(base=outfile_base,
                                                                  mindiv=str(clonal_cutoff),
                                                                  output_dir=output_dir)
     cluster_file = '{initial_edgefile}.cluster.tab.txt'.format(initial_edgefile=initial_edgefile)
@@ -69,8 +65,8 @@ def main():
     make_edgefile(infile,
                   initial_edgefile,
                   clonal_cutoff=clonal_cutoff,
-                  single_cell=single_cell)#,
-                  #linear_model=negative_selection_linear_fit())
+                  single_cell=single_cell,
+                  linear_model=negative_selection_linear_fit())
     G_unclust = nx.read_edgelist(initial_edgefile, data=(('weight', float),))
     nx.write_graphml(G_unclust, graphml_unclust_name)
 
@@ -164,8 +160,8 @@ def main():
                     final_clusters[str(float(max_cluster + 1))] = [node]
                     max_cluster += 1
                     print(node)
-            #else:
-                #raise RuntimeError('More than one max clique found')
+            else:
+                raise RuntimeError('More than one max clique found')
 
     with open(cluster_file, 'w') as final:
         final.write('\t'.join(['Strain',
@@ -242,7 +238,7 @@ def make_edgefile(infile,
     # Find clonal clusters
     clonal_df = trn_table[trn_table['Initial divergence'] < clonal_cutoff][['Strain 1', 'Strain 2']]
     print(clonal_df)
-    clones = nx.from_pandas_edgelist(clonal_df,
+    clones = nx.from_pandas_dataframe(clonal_df,
                                       'Strain 1',
                                       'Strain 2')
     clonal_components = tuple(nx.connected_component_subgraphs(clones))
