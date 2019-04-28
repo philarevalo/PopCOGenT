@@ -26,10 +26,8 @@ def run_on_single_machine(threads,
 
     renamed_genomes = [rename_for_mugsy(g) for g in glob.glob(genome_directory + '*' + contig_extension)]
     pairs_and_seeds = [(g1, g2, random.randint(1, int(1e9))) for g1, g2 in combinations(renamed_genomes, 2)]
-    Parallel(n_jobs=threads)(delayed(align_and_calculate_length_bias)(g1, g2, alignment_dir, mugsy_path, seed) for g1, g2, seed in pairs_and_seeds)
-
-    #for g1, g2, seed in pairs_and_seeds:
-    #    align_and_calculate_length_bias(g1, g2, alignment_dir, mugsy_path, seed)
+    length_bias_files = Parallel(n_jobs=threads)(delayed(align_and_calculate_length_bias)(g1, g2, alignment_dir, mugsy_path, seed) for g1, g2, seed in pairs_and_seeds)
+    
 
 def align_and_calculate_length_bias(genome_1_file,
                                     genome_2_file,
