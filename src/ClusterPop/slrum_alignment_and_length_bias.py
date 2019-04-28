@@ -29,3 +29,6 @@ def main():
 
     args = parser.parse_args()
     align_and_calculate_length_bias(args.genome1, args.genome2, args.alignment_dir, args.mugsy_path, args.seed)
+
+if __name__ == '__main__':
+    main()

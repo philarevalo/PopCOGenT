@@ -7,6 +7,7 @@ from length_bias_functions import *
 from joblib import Parallel, delayed
 import glob
 from itertools import combinations
+import pandas as pd
 
 
 def main():
@@ -24,7 +25,7 @@ def main():
     parser.add_argument('--genome_dir',
                         default=None,
                         type=str,
-                        help='Directory containing genome files.')
+                        help='Directory containing genome files. Please provide absolute path.')
     parser.add_argument('--genome_ext',
                         default=None,
                         type=str,
@@ -36,19 +37,19 @@ def main():
     parser.add_argument('--alignment_dir',
                         default=None,
                         type=str,
-                        help='Directory for alignments.')
+                        help='Directory for alignments. Please provide absolute path.')
     parser.add_argument('--mugsy_path',
                         default=None,
                         type=str,
-                        help='Path to mugsy.')
+                        help='Path to mugsy. Please provide absolute path.')
     parser.add_argument('--mugsy_env',
                         default=None,
                         type=str,
-                        help='Path to mugsyenv.sh.')
-    parser.add_argument('--script_path',
+                        help='Path to mugsyenv.sh. Please provide absolute path.')
+    parser.add_argument('--source_path',
                         default=None,
                         type=str,
-                        help='Path to source scripts.')
+                        help='Path to source scripts. Please provide absolute path.')
     parser.add_argument('--base_name',
                         default=None,
                         type=str,
@@ -67,14 +68,26 @@ def main():
                      args.alignment_dir,
                      args.mugsy_env,
                      args.mugsy_path,
-                     args.script_path)
+                     args.script_dir,
+                     args.source_path)
     else:
-        run_on_single_machine(args.threads,
-                              args.genome_dir,
-                              args.genome_ext,
-                              args.alignment_dir,
-                              args.mugsy_env,
-                              args.mugsy_path)
+        length_bias_files = run_on_single_machine(args.num_threads,
+                                                  args.genome_dir,
+                                                  args.genome_ext,
+                                                  args.alignment_dir,
+                                                  args.mugsy_path)
+        header = ['Strain 1',
+                 'Strain 2',
+                 'Initial divergence',
+                 'Alignment size',
+                 'Genome 1 size',
+                 'Genome 2 size',
+                 'Observed SSD',
+                 'SSD 95 CI low',
+                 'SSD 95 CI high']
+        rows = [open(f).read().strip().split() for f in length_bias_files]
+        df = pd.DataFrame(rows, columns=header)
+        df.to_csv('test.tab.txt', sep='\t', index=False)
 
 def check_inputs(args):
 
@@ -94,47 +107,40 @@ def check_inputs(args):
     if not path.exists(args.mugsy_path):
         raise FileNotFoundError('Invalid mugsy path.')
 
-    # Check utility path for scripts
-    if not path.exists('{utility_path}/align_contig_array.py'.format(utility_path=args.utility_path)):
-        raise FileNotFoundError('align_contig_array.py not in utility path. Terminating.')
-
-    if not path.exists('{utility_path}/calculate_length_bias.py'.format(utility_path=args.utility_path)):
-        raise FileNotFoundError('calculate_length_bias.py not in utility path. Terminating.')
-
     # Make sure that script directory is specified if you're using slurm.
     if args.slurm:
-        if not args.temp_script_dir:
+        if not args.script_dir:
             raise ValueError('Slurm specified without directory for scripts. Terminating.')
-        if not path.exists(args.temp_script_dir):
+        if not path.exists(args.script_dir):
             print('Temporary script directory does not exist. Creating new directory.')
-            makedirs(args.temp_script_dir)
+            makedirs(args.script_dir)
 
 def run_on_single_machine(threads,
                           genome_directory,
                           genome_extension,
                           alignment_dir,
-                          mugsy_env,
                           mugsy_path):
-    system('source ' + mugsy_env)
     renamed_genomes = [rename_for_mugsy(g) for g in glob.glob(genome_directory + '*' + genome_extension)]
     pairs_and_seeds = [(g1, g2, random.randint(1, int(1e9))) for g1, g2 in combinations(renamed_genomes, 2)]
     length_bias_files = Parallel(n_jobs=threads)(delayed(align_and_calculate_length_bias)(g1, g2, alignment_dir, mugsy_path, seed) for g1, g2, seed in pairs_and_seeds)
+    return length_bias_files
 
 def make_scripts(genome_directory,
                  genome_extension,
                  alignment_dir,
                  mugsy_env,
                  mugsy_path,
-                 script_dir):
+                 script_dir,
+                 source_path):
     renamed_genomes = [rename_for_mugsy(g) for g in glob.glob(genome_directory + '*' + genome_extension)]
     pairs_and_seeds = [(g1, g2, random.randint(1, int(1e9))) for g1, g2 in combinations(renamed_genomes, 2)]
     script_num = 0
     for g1, g2, seed in pairs_and_seeds:
         with open('{scriptdir}/run_align_and_calc_{script_num}.sh'.format(scriptdir=script_dir, script_num=str(script_num)), 'w') as outfile:
             outfile.write('#!/bin/bash\n')
-            outfile.write('source activate PopCOGenT\n')
+            outfile.write('source activate HGT_cluster\n')
             outfile.write('source {mugsy_env}\n'.format(mugsy_env=mugsy_env))
-            outfile.write('python slrum_alignment_and_length_bias.py --genome1 {g1} --genome2 {g2} --alignment_dir {alignment_dir} --mugsy_path {mugsy_path} --seed {seed}').format(g1=g1, g2=g2, alignment_dir=alignment_dir, mugsy_path=mugsy_path, seed=str(seed))
+            outfile.write('python {source_path}/slurm_alignment_and_length_bias.py --genome1 {g1} --genome2 {g2} --alignment_dir {alignment_dir} --mugsy_path {mugsy_path} --seed {seed}'.format(g1=g1, g2=g2, alignment_dir=alignment_dir, mugsy_path=mugsy_path, seed=str(seed), source_path=source_path))
         script_num += 1
 
 if __name__ == '__main__':
