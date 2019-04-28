@@ -10,10 +10,10 @@ from itertools import combinations
 
 
 def main():
-    run_on_single_machine(10,
-                         '../../test/',
+    run_on_single_machine(16,
+                         '/home/parevalo/testing/ClusterPop/test/',
                          '.fasta',
-                         '../../test/',
+                         '/home/parevalo/testing/ClusterPop/test/',
                          '~/apps/mugsy_trunk/mugsy')
 
 
@@ -23,8 +23,13 @@ def run_on_single_machine(threads,
                           contig_extension,
                           alignment_dir,
                           mugsy_path):
-    pairs_and_seeds = [(g1, g2, random.randint(1, int(1e9))) for g1, g2 in combinations(glob.glob(genome_directory + '*' + contig_extension), 2)]
+
+    renamed_genomes = [rename_for_mugsy(g) for g in glob.glob(genome_directory + '*' + contig_extension)]
+    pairs_and_seeds = [(g1, g2, random.randint(1, int(1e9))) for g1, g2 in combinations(renamed_genomes, 2)]
     Parallel(n_jobs=threads)(delayed(align_and_calculate_length_bias)(g1, g2, alignment_dir, mugsy_path, seed) for g1, g2, seed in pairs_and_seeds)
+
+    #for g1, g2, seed in pairs_and_seeds:
+    #    align_and_calculate_length_bias(g1, g2, alignment_dir, mugsy_path, seed)
 
 def align_and_calculate_length_bias(genome_1_file,
                                     genome_2_file,
@@ -47,7 +52,6 @@ def align_and_calculate_length_bias(genome_1_file,
 
 
 def rename_for_mugsy(genome):
-
     # Assumes the strain name is everythign except the extension
     strain_name = '.'.join(path.basename(genome).split('.')[0:-1])
 
@@ -63,6 +67,7 @@ def rename_for_mugsy(genome):
         s.id = '{id}_{contig_num}'.format(id=mugsy_name, contig_num=str(i))
         mugsy_s.append(s)
     SeqIO.write(mugsy_s, mugsy_outname, 'fasta')
+    return mugsy_outname
 
 
 def align_genomes(contig1,
@@ -73,8 +78,8 @@ def align_genomes(contig1,
     
     random.seed(random_seed)
     # Assumes that files are named strain.contigextension.renamed.mugsy
-    strain1 = path.basename.split('.')[0:-3]
-    strain2 = path.basename.split('.')[0:-3]
+    strain1 = '.'.join(path.basename(contig1).split('.')[0:-3])
+    strain2 = '.'.join(path.basename(contig2).split('.')[0:-3])
     correct_name = '{strain1}_@_{strain2}.maf'.format(strain1 = strain1, strain2 = strain2) 
 
     # make a temporary contig file due to parallelization issues with reading from the same filename
@@ -82,20 +87,27 @@ def align_genomes(contig1,
     out_id_2 = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for i in range(16))
 
 
-    system('cp {contig1} {randomcontigname1}'.format(contig1=contig1, randomcontigname1=out_id_1))
-    system('cp {contig2} {randomcontigname2}'.format(contig2=contig2, randomcontigname2=out_id_2))
+    system('cp {contig1} {alignment_dir}/{randomcontigname1}.tempcontig'.format(contig1=contig1, randomcontigname1=out_id_1, alignment_dir=alignment_dir))
+    system('cp {contig2} {alignment_dir}/{randomcontigname2}.tempcontig'.format(contig2=contig2, randomcontigname2=out_id_2, alignment_dir=alignment_dir))
 
     # Aligning the genomes
     prefix = out_id_1 + out_id_2
-    system('{mugsypath} --directory {align_directory} --prefix {prefix} {randomcontigname1} {randomcontigname2}'.format(mugsypath=mugsy_path,
+    print('{mugsypath} --directory {align_directory} --prefix {prefix} {align_directory}/{randomcontigname1}.tempcontig {align_directory}/{randomcontigname2}.tempcontig'.format(mugsypath=mugsy_path,
+                                                                                                                        align_directory=alignment_dir,
+                                                                                                                        prefix = prefix,
+                                                                                                                        randomcontigname1=out_id_1,
+                                                                                                                        randomcontigname2 = out_id_2))
+    system('{mugsypath} --directory {align_directory} --prefix {prefix} {align_directory}/{randomcontigname1}.tempcontig {align_directory}/{randomcontigname2}.tempcontig'.format(mugsypath=mugsy_path,
                                                                                                                         align_directory=alignment_dir,
                                                                                                                         prefix = prefix,
                                                                                                                         randomcontigname1=out_id_1,
                                                                                                                         randomcontigname2 = out_id_2))
 
+
     # Remove unneeded files
-    remove('{random_contig1}'.format(random_contig1=out_id_1))
-    remove('{random_contig2}'.format(random_contig2=out_id_2))
+    remove('{align_directory}/{random_contig1}.tempcontig'.format(random_contig1=out_id_1, align_directory=alignment_dir))
+    remove('{align_directory}/{random_contig2}.tempcontig'.format(random_contig2=out_id_2, align_directory=alignment_dir))
+    remove('{align_directory}/{prefix}'.format(prefix=prefix, align_directory=alignment_dir))
     remove('{prefix}.mugsy.log'.format(prefix=prefix))
 
     system('mv {random_alignment_name} {correct_name}'.format(random_alignment_name=alignment_dir+'/'+prefix +'.maf',
@@ -117,3 +129,6 @@ def calculate_length_bias(input_alignment,
 
     with open(output_file, 'w') as outfile:
         outfile.write(edge + '\n')
+
+if __name__ == '__main__':
+    main()
