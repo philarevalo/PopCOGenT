@@ -1,5 +1,5 @@
 import argparse
-from os import system, path, remove
+from os import system, path, remove, makedirs
 import random
 import string
 from Bio import SeqIO
@@ -10,123 +10,132 @@ from itertools import combinations
 
 
 def main():
-    run_on_single_machine(16,
-                         '/home/parevalo/testing/ClusterPop/test/',
-                         '.fasta',
-                         '/home/parevalo/testing/ClusterPop/test/',
-                         '~/apps/mugsy_trunk/mugsy')
+    parser = argparse.ArgumentParser(
+        description=('Align contigs in a job array'),
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument('--slurm',
+                        default=False,
+                        action='store_true')
+    parser.add_argument('--num_threads',
+                        default=1,
+                        type=int,
+                        help='number of threads to run in parallel for single-machine use (i.e., not slurm)')
+    parser.add_argument('--genome_dir',
+                        default=None,
+                        type=str,
+                        help='Directory containing genome files.')
+    parser.add_argument('--genome_ext',
+                        default=None,
+                        type=str,
+                        help='Extension for genome files (e.g., .fasta')
+    parser.add_argument('--script_dir',
+                        default=None,
+                        type=str,
+                        help='Directory for run scripts.')
+    parser.add_argument('--alignment_dir',
+                        default=None,
+                        type=str,
+                        help='Directory for alignments.')
+    parser.add_argument('--mugsy_path',
+                        default=None,
+                        type=str,
+                        help='Path to mugsy.')
+    parser.add_argument('--mugsy_env',
+                        default=None,
+                        type=str,
+                        help='Path to mugsyenv.sh.')
+    parser.add_argument('--script_path',
+                        default=None,
+                        type=str,
+                        help='Path to source scripts.')
+    parser.add_argument('--base_name',
+                        default=None,
+                        type=str,
+                        help='base output file name')
+    parser.add_argument('--final_output_dir',
+                        default='./',
+                        type=str,
+                        help='Directory for final output.')
 
+    args = parser.parse_args()
+    check_inputs(args)
 
+    if args.slurm:
+        make_scripts(args.genome_dir,
+                     args.genome_ext,
+                     args.alignment_dir,
+                     args.mugsy_env,
+                     args.mugsy_path,
+                     args.script_path)
+    else:
+        run_on_single_machine(args.threads,
+                              args.genome_dir,
+                              args.genome_ext,
+                              args.alignment_dir,
+                              args.mugsy_env,
+                              args.mugsy_path)
+
+def check_inputs(args):
+
+    # Check that contig files exist in the directory
+    contig_list = glob.glob('{contigdir}/*{extension}'.format(contigdir=args.genome_dir,
+                                                              extension=args.genome_ext))
+
+    if len(contig_list) == 0:
+        raise FileNotFoundError('Files with contig extension not found in directory.')
+
+    # Check for alignment directory. Makes it if it isn't there.
+    if not path.exists(args.alignment_dir):
+        print('Slurm output directory does not exist. Creating new directory.')
+        makedirs(args.alignment_dir)
+
+    # Checks mugsy path
+    if not path.exists(args.mugsy_path):
+        raise FileNotFoundError('Invalid mugsy path.')
+
+    # Check utility path for scripts
+    if not path.exists('{utility_path}/align_contig_array.py'.format(utility_path=args.utility_path)):
+        raise FileNotFoundError('align_contig_array.py not in utility path. Terminating.')
+
+    if not path.exists('{utility_path}/calculate_length_bias.py'.format(utility_path=args.utility_path)):
+        raise FileNotFoundError('calculate_length_bias.py not in utility path. Terminating.')
+
+    # Make sure that script directory is specified if you're using slurm.
+    if args.slurm:
+        if not args.temp_script_dir:
+            raise ValueError('Slurm specified without directory for scripts. Terminating.')
+        if not path.exists(args.temp_script_dir):
+            print('Temporary script directory does not exist. Creating new directory.')
+            makedirs(args.temp_script_dir)
 
 def run_on_single_machine(threads,
                           genome_directory,
-                          contig_extension,
+                          genome_extension,
                           alignment_dir,
+                          mugsy_env,
                           mugsy_path):
-
-    renamed_genomes = [rename_for_mugsy(g) for g in glob.glob(genome_directory + '*' + contig_extension)]
+    system('source ' + mugsy_env)
+    renamed_genomes = [rename_for_mugsy(g) for g in glob.glob(genome_directory + '*' + genome_extension)]
     pairs_and_seeds = [(g1, g2, random.randint(1, int(1e9))) for g1, g2 in combinations(renamed_genomes, 2)]
     length_bias_files = Parallel(n_jobs=threads)(delayed(align_and_calculate_length_bias)(g1, g2, alignment_dir, mugsy_path, seed) for g1, g2, seed in pairs_and_seeds)
-    
 
-def align_and_calculate_length_bias(genome_1_file,
-                                    genome_2_file,
-                                    alignment_dir,
-                                    mugsy_path,
-                                    random_seed):
-    alignment_file = align_genomes(genome_1_file,
-                                   genome_2_file,
-                                   alignment_dir,
-                                   mugsy_path,
-                                   random_seed)
-
-    length_bias_file = alignment_file + '.length_bias.txt'
-    calculate_length_bias(alignment_file,
-                          genome_1_file,
-                          genome_2_file,
-                          length_bias_file)
-    return length_bias_file
-
-
-
-def rename_for_mugsy(genome):
-    # Assumes the strain name is everythign except the extension
-    strain_name = '.'.join(path.basename(genome).split('.')[0:-1])
-
-    # We want to remove all periods and colons from sequence input so that mugsy doesn't break
-    mugsy_outname = genome + '.renamed.mugsy'
-    
-    # Removes all bad characters
-    mugsy_name = strain_name.translate(({ord(c): '_' for c in """ !@#$%^&*()[]{};:,./<>?\|`"'~-=+"""}))
-    
-    mugsy_s = []
-    for i, s in enumerate(SeqIO.parse(genome, 'fasta')):
-        s.description = ''
-        s.id = '{id}_{contig_num}'.format(id=mugsy_name, contig_num=str(i))
-        mugsy_s.append(s)
-    SeqIO.write(mugsy_s, mugsy_outname, 'fasta')
-    return mugsy_outname
-
-
-def align_genomes(contig1,
-                  contig2,
-                  alignment_dir,
-                  mugsy_path,
-                  random_seed):
-    
-    random.seed(random_seed)
-    # Assumes that files are named strain.contigextension.renamed.mugsy
-    strain1 = '.'.join(path.basename(contig1).split('.')[0:-3])
-    strain2 = '.'.join(path.basename(contig2).split('.')[0:-3])
-    correct_name = '{strain1}_@_{strain2}.maf'.format(strain1 = strain1, strain2 = strain2) 
-
-    # make a temporary contig file due to parallelization issues with reading from the same filename
-    out_id_1 = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for i in range(16))
-    out_id_2 = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for i in range(16))
-
-
-    system('cp {contig1} {alignment_dir}/{randomcontigname1}.tempcontig'.format(contig1=contig1, randomcontigname1=out_id_1, alignment_dir=alignment_dir))
-    system('cp {contig2} {alignment_dir}/{randomcontigname2}.tempcontig'.format(contig2=contig2, randomcontigname2=out_id_2, alignment_dir=alignment_dir))
-
-    # Aligning the genomes
-    prefix = out_id_1 + out_id_2
-    print('{mugsypath} --directory {align_directory} --prefix {prefix} {align_directory}/{randomcontigname1}.tempcontig {align_directory}/{randomcontigname2}.tempcontig'.format(mugsypath=mugsy_path,
-                                                                                                                        align_directory=alignment_dir,
-                                                                                                                        prefix = prefix,
-                                                                                                                        randomcontigname1=out_id_1,
-                                                                                                                        randomcontigname2 = out_id_2))
-    system('{mugsypath} --directory {align_directory} --prefix {prefix} {align_directory}/{randomcontigname1}.tempcontig {align_directory}/{randomcontigname2}.tempcontig'.format(mugsypath=mugsy_path,
-                                                                                                                        align_directory=alignment_dir,
-                                                                                                                        prefix = prefix,
-                                                                                                                        randomcontigname1=out_id_1,
-                                                                                                                        randomcontigname2 = out_id_2))
-
-
-    # Remove unneeded files
-    remove('{align_directory}/{random_contig1}.tempcontig'.format(random_contig1=out_id_1, align_directory=alignment_dir))
-    remove('{align_directory}/{random_contig2}.tempcontig'.format(random_contig2=out_id_2, align_directory=alignment_dir))
-    remove('{align_directory}/{prefix}'.format(prefix=prefix, align_directory=alignment_dir))
-    remove('{prefix}.mugsy.log'.format(prefix=prefix))
-
-    system('mv {random_alignment_name} {correct_name}'.format(random_alignment_name=alignment_dir+'/'+prefix +'.maf',
-                                                              correct_name=alignment_dir+'/'+correct_name))
-    return alignment_dir+'/'+correct_name
-
-def calculate_length_bias(input_alignment,
-                          genome_1_file,
-                          genome_2_file,
-                          output_file):
-
-
-    g1size = sum([len(s) for s in SeqIO.parse(genome_1_file, 'fasta')])
-    g2size = sum([len(s) for s in SeqIO.parse(genome_2_file, 'fasta')])
-
-    edge = get_transfer_measurement(input_alignment,
-                                    g1size,
-                                    g2size)
-
-    with open(output_file, 'w') as outfile:
-        outfile.write(edge + '\n')
+def make_scripts(genome_directory,
+                 genome_extension,
+                 alignment_dir,
+                 mugsy_env,
+                 mugsy_path,
+                 script_dir):
+    renamed_genomes = [rename_for_mugsy(g) for g in glob.glob(genome_directory + '*' + genome_extension)]
+    pairs_and_seeds = [(g1, g2, random.randint(1, int(1e9))) for g1, g2 in combinations(renamed_genomes, 2)]
+    script_num = 0
+    for g1, g2, seed in pairs_and_seeds:
+        with open('{scriptdir}/run_align_and_calc_{script_num}.sh'.format(scriptdir=script_dir, script_num=str(script_num)), 'w') as outfile:
+            outfile.write('#!/bin/bash\n')
+            outfile.write('source activate PopCOGenT\n')
+            outfile.write('source {mugsy_env}\n'.format(mugsy_env=mugsy_env))
+            outfile.write('python slrum_alignment_and_length_bias.py --genome1 {g1} --genome2 {g2} --alignment_dir {alignment_dir} --mugsy_path {mugsy_path} --seed {seed}').format(g1=g1, g2=g2, alignment_dir=alignment_dir, mugsy_path=mugsy_path, seed=str(seed))
+        script_num += 1
 
 if __name__ == '__main__':
     main()
