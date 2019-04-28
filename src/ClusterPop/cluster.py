@@ -131,7 +131,7 @@ def main():
         else:
             final_clusters[str(i) + '.0'].append(component.nodes()[0])
 
-    # Enforces that final populations must be cliques
+    # Enforces that final populations must be cliques if there is an obvious reason to cut out a node (i.e., a single max clique)
     cluster_dict = {}
     for clust, strains in final_clusters.items():
         for clonal_complex in strains:
@@ -160,8 +160,6 @@ def main():
                     final_clusters[str(float(max_cluster + 1))] = [node]
                     max_cluster += 1
                     print(node)
-            else:
-                raise RuntimeError('More than one max clique found')
 
     with open(cluster_file, 'w') as final:
         final.write('\t'.join(['Strain',
@@ -228,7 +226,9 @@ def make_edgefile(infile,
     trn_table['Negative selection cutoff'] = linear_model.get_prediction(predict_df).summary_frame(alpha=0.1)['obs_ci_upper']
 
     # Filter negative selection cutoff
-    if single_cell:  # Special filtering just for single cell genomes
+    if 'pcc' in infile:  # Special code just for the prochlorococcus single cell genomes
+        neg_cutoff = 5.0762
+    elif single_cell:  # Special filtering just for single cell genomes
         neg_cutoff = max(trn_table['Negative selection cutoff'])
     else:  # Otherwise just use the negative selection index
          neg_cutoff = trn_table['Negative selection cutoff']
