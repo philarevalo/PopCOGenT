@@ -226,9 +226,7 @@ def make_edgefile(infile,
     trn_table['Negative selection cutoff'] = linear_model.get_prediction(predict_df).summary_frame(alpha=0.1)['obs_ci_upper']
 
     # Filter negative selection cutoff
-    if 'pcc' in infile:  # Special code just for the prochlorococcus single cell genomes
-        neg_cutoff = 5.0762
-    elif single_cell:  # Special filtering just for single cell genomes
+    if single_cell:  # Special filtering just for single cell genomes
         neg_cutoff = max(trn_table['Negative selection cutoff'])
     else:  # Otherwise just use the negative selection index
          neg_cutoff = trn_table['Negative selection cutoff']
