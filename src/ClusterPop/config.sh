@@ -1,5 +1,5 @@
 # Base name for final output file
-base_name='sulfolobus'
+base_name='pcc'
 
 # Path to mugsy and mugsyenv.sh. Please provide absolute path
 mugsy_path=/home/parevalo/apps/mugsy_trunk/mugsy
@@ -9,10 +9,10 @@ mugsy_env=/home/parevalo/apps/mugsy_trunk/mugsyenv.sh
 infomap_path=/nobackup1/parevalo/Infomap/Infomap
 
 # Path to genome files
-genome_dir=../../test/ #Insert path to genome files
+genome_dir=/nobackup1/parevalo/genomes_for_clustering/inputs/Pcc/clean/ #../../test/ #Insert path to genome files
 
 # Are the genomes single-cell? If so, this should equal --single_cell
-single_cell=''
+single_cell='--single_cell'
 
 # Extension of genome files
 genome_ext=.fasta # insert file extension for genome files in fasta format
@@ -25,7 +25,7 @@ final_output_dir=./
 
 
 # Are you running on a single machine? Please specify the number of threads
-num_threads=10
+num_threads=4
 
 # Are you using a slurm environment? Then this should equal --slurm, otherwise, leave as empty quotes.
 slurm_str=''
