@@ -1,13 +1,17 @@
 name: PopCOGenT
 channels:
 - defaults
+- bioconda
+- r
 dependencies:
-- biopython=1.68=np111py34_0
-- joblib=0.9.4=py34_0
-- networkx=1.11=py34_0
-- numpy=1.11.3=py34_0
-- pandas=0.19.2=np111py34_1
-- python=3.4.5
-- scipy=0.18.1=np111py34_1
-- statsmodels=0.6.1=np111py34_1
-
+- biopython=1.68
+- joblib=0.9.4
+- networkx=1.11
+- numpy=1.11.3
+- pandas=0.19.2
+- python=3.6
+- scipy=0.18.1
+- statsmodels=0.8.0
+- snakemake=3.11.2
+- rpy2=2.8.5
+- r-tidyverse=1.0.0=r3.3.2_0
