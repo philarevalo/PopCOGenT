@@ -1,21 +1,34 @@
-# ClusterPop
-Measures recent horizontal gene transfer between pairs of genomes using the ClusterPop methodology and produces population predictions.
+# PopCOGenT
+Measures recent horizontal gene transfer between pairs of genomes using the length bias of the distribution of identical genome regions and produces population predictions.
 
-# Requirements
-As written, this code requires use of a computational cluster environment with SLURM. Infomap is also required and not provided in this repository. A list of required python 3 packages is available in ClusterPop.yml. These should be installed using miniconda in an environment called ClusterPop.
+# Important warnings
+
+PopCOGenT produces a lot of pairwise genome alignments. These are on the order of 10MB in size. 
 
 # Input
-A directory with genomes in fasta format.
+A directory of genomes to cluster in fasta format.
 
 # Output
 
-`*_cat_ssd.txt` contains the raw calculation of length bias between all genomes.
+`*_length_bias.txt` contains the raw calculation of length bias between all genomes.
 `*.graphml` contains the unclustered length bias network in graphml format for visualization.
 `*.cluster.tab.txt` contains final population assignments.
 
-The base filename for all output files is set in `config.sh`.
+# Setup
+Set all relevant variables in `config.sh`. Variable descriptions are provided as comments in `config.sh` and are also reproduced below.
 
-# Usage
-Set all relevant variables in `config.sh` and then run.
+* `base_name`: Base name for output files. Just a prefix to identify your outputs.
+* `final_output_dir`: Output directory for the final output files.
+* `mugsy_path`: Path to mugsy. Please provide absolute path.
+* `mugsy_env`: Path to `mugsyenv.sh`. Please provide absolute path.
+* `infomap_path`: Path to Infomap executable. Please provide absolute path.
+* `genome_dir`: Path to genome files.
+* `genome_ext`: Genome file filename extension.
+* `alignment_dir`: Directory for output alignments. Must provide absolute path.
+* `num_threads`: Are you running on a single machine? Please specify the number of threads to run. This can, at maximum, be the number of logical cores your machine has.
+* `single_cell`: Are your genomes single-cell genomes? If so, this should equal --single_cell. Otherwise leave as ''
+* `discard_alignments`: Whether to discard alignments after length bias is calculated. Alignment files can be 10MB each and thus a run on 100 genomes can take up on the order of 50 GB of space if alignment files are not discarded. Please set as either `True` or `False`.
 
-`sbatch run_ClusterPop.sbatch`
+# Execution
+
+Once all variables are set in `config.sh`, you can run PopCOGenT using the run script `

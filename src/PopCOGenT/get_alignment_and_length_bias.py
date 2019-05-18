@@ -51,6 +51,11 @@ def main():
                         default=1,
                         type=int,
                         help='number of threads to run in parallel for single-machine use (i.e., not slurm)')
+
+    parser.add_argument('--keep_alignments',
+                        default=False,
+                        action='store_true',
+                        help='Whether to discard alignment files after length bias is calculated.')
     
     parser.add_argument('--slurm',
                         default=False,
@@ -80,7 +85,8 @@ def main():
                                                   args.genome_dir,
                                                   args.genome_ext,
                                                   args.alignment_dir,
-                                                  args.mugsy_path)
+                                                  args.mugsy_path,
+                                                  args.keep_alignments)
         header = ['Strain 1',
                  'Strain 2',
                  'Initial divergence',
@@ -130,10 +136,12 @@ def run_on_single_machine(threads,
                           genome_directory,
                           genome_extension,
                           alignment_dir,
-                          mugsy_path):
+                          mugsy_path,
+                          keep_alignments):
+    
     renamed_genomes = [rename_for_mugsy(g) for g in glob.glob(genome_directory + '*' + genome_extension)]
     pairs_and_seeds = [(g1, g2, random.randint(1, int(1e9))) for g1, g2 in combinations(renamed_genomes, 2)]
-    length_bias_files = Parallel(n_jobs=threads)(delayed(align_and_calculate_length_bias)(g1, g2, alignment_dir, mugsy_path, seed) for g1, g2, seed in pairs_and_seeds)
+    length_bias_files = Parallel(n_jobs=threads)(delayed(align_and_calculate_length_bias)(g1, g2, alignment_dir, mugsy_path, seed, keep_alignments) for g1, g2, seed in pairs_and_seeds)
     return length_bias_files
 
 def make_scripts(genome_directory,

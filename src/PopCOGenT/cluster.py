@@ -55,11 +55,12 @@ def main():
 
     # Initializing lists and dictionaries
     final_clusters = defaultdict(list)
-    initial_edgefile = '{output_dir}/{base}_{mindiv}.txt'.format(base=outfile_base,
-                                                                 mindiv=str(clonal_cutoff),
-                                                                 output_dir=output_dir)
-    cluster_file = '{initial_edgefile}.cluster.tab.txt'.format(initial_edgefile=initial_edgefile)
-    graphml_unclust_name = '{initial_edgefile}.unclust.graphml'.format(initial_edgefile=initial_edgefile)
+    initial_edgefile = 'infomap_out/{base}_{mindiv}.txt'.format(base=outfile_base,
+                                                                 mindiv=str(clonal_cutoff))
+    cluster_file = '{output_dir}/{initial_edgefile}.cluster.tab.txt'.format(initial_edgefile=os.path.basename(initial_edgefile),
+                                                                            output_dir=output_dir)
+    graphml_unclust_name = '{output_dir}/{initial_edgefile}.unclust.graphml'.format(initial_edgefile=os.path.basename(initial_edgefile),
+                                                                                    output_dir=output_dir)
 
     # Make the initial network edgefile, graph object, and graphml file
     make_edgefile(infile,
@@ -103,9 +104,8 @@ def main():
                 outfile.writelines(new_lines)
 
             # Runs infomap
-            cmd = '{infomap} -i pajek {infomap_args} {pajek_file} {output_dir}'.format(infomap=infomap_path,
+            cmd = '{infomap} -i pajek {infomap_args} {pajek_file} infomap_out/'.format(infomap=infomap_path,
                                                                                        pajek_file=outname,
-                                                                                       output_dir=output_dir,
                                                                                        infomap_args=infomap_args)
             os.system(cmd)
 
@@ -181,6 +181,10 @@ def check_inputs(args):
     if not os.path.exists(args.output_directory):
         print('Ouput directory does not exist. Creating new directory.')
         os.makedirs(args.output_directory)
+
+    if not os.path.exists('infomap_out/'):
+        print('Ouput directory does not exist. Creating new directory.')
+        os.makedirs('infomap_out')
 
     # Checks infomap
     if not os.path.exists(args.infomap_path):

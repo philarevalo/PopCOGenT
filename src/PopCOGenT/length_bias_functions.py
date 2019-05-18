@@ -11,7 +11,8 @@ def align_and_calculate_length_bias(genome_1_file,
                                     genome_2_file,
                                     alignment_dir,
                                     mugsy_path,
-                                    random_seed):
+                                    random_seed,
+                                    keep_alignments):
     alignment_file = align_genomes(genome_1_file,
                                    genome_2_file,
                                    alignment_dir,
@@ -23,6 +24,8 @@ def align_and_calculate_length_bias(genome_1_file,
                           genome_1_file,
                           genome_2_file,
                           length_bias_file)
+    if not keep_alignments:
+        remove(alignment_file)
     return length_bias_file
 
 
