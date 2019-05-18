@@ -1,79 +1,99 @@
 from snakemake.utils import R
 import pandas as pd
+from Bio import SeqIO
+from os.path import basename
+from os import system
+from collections import defaultdict
+import numpy as np
+from scipy import stats
+from itertools import combinations
+
 
 configfile: "config.yaml"
 
-#WILDCARDS = glob_wildcards("input/genomes/{organism}/{name}.fasta")
 
 def get_strains(wildcards):
-    df = pd.read_csv("input/predicted_clusters/%s_0.000355362.txt.cluster.tab.txt" % wildcards.organism,
+    df = pd.read_csv("input/%s_0.000355362.txt.cluster.tab.txt" % wildcards.organism,
                      sep="\t")
-    strains = list(df.groupby("Clonal_complex").first()["Strain"])
+    df = df[df.Main_cluster == float(config['Group_to_cluster'])]
+    strains = list(df["Strain"]) #.groupby("Clonal_complex").first()
     return strains
+
+def is_recent(aligned_seqs, alpha, pi):
+    # Given aligned seqs, a significance level, and an average nucleotide divergence
+    # determines whether gene is "recent"
+
+    pi_obs = calculate_pi(aligned_seqs)
+    #print(pi, pi_obs)
+    seq_len = len(aligned_seqs[0])
+    low, high = stats.binom.interval(alpha, seq_len, pi)
+    if pi_obs == 0 or pi_obs < low / seq_len:
+        recent = True
+    else:
+        recent = False
+    return (recent, pi_obs)
+    
+def count_divs(s1, s2):
+    # just counts divergences
+    d = 0
+    non_gap_len = 0
+    for b1, b2 in zip(s1, s2):
+        if b1 != '-' and b2 != '-':
+            non_gap_len += 1
+            if b1 != b2:
+                d += 1
+    return d * 1.0 / non_gap_len
+
+def calculate_pi(aligned_seqs):
+    # Calculates average nucleotide divergence
+    aves = []
+    for seq1, seq2 in combinations(aligned_seqs, 2):
+        aves.append(count_divs(seq1, seq2))
+    return(np.average(aves))
 
 localrules: all, clean, core_genes
 
 rule all:
     input:
-        "output/Ruminococcus/master_presence_absence.csv",
-        "output/Ruminococcus/Ruminococcus.orfs.csv",
-        "output/Ruminococcus/Ruminococcus.annotations.csv"
+        #"proc/%s/%s.%s.core.fna" % (config['prefix'], config['prefix'], config['Group_to_cluster'])
+        "output/%s/%s.%s.flex_genes.csv" % (config['prefix'],config['prefix'],config['Group_to_cluster'])
 
 localrules:
     target, clean
 
 rule run_prodigal:
     input:
-        "input/genomes/{organism}/{name}.fasta"
+        config['genome_path'] + "/{name}.fasta"
     output:
         faa = "output/{organism}/orfs/{name}_cds_prod.faa",
         fna = "output/{organism}/orfs/{name}_cds_prod.fna"
     shell:
         "{config[prodigal_path]} -i {input} -d {output.fna} -a {output.faa}"
 
-rule clean:
-    input:
-        "output/{organism}/orfs/{name}_cds_prod.faa"
-    output:
-        "proc/{organism}/clean_orfs/{name}_cds_prod.faa"
-    shell:
-        "sed 's/*//g' {input} > {output}"
-
-rule annotate:
-    input:
-        "proc/{organism}/clean_orfs/{name}_cds_prod.faa"
-    output:
-        "output/{organism}/annotations/{name}_cds_prod.faa.tsv"
-    params:
-        output_annotation_directory = "output/{organism}/annotations",
-        interproscan_tempdir = "tmp/temp_{organism}/interproscan"
-    shell:
-        'module load engaging/python/2.7.10; module load engaging/jdk/1.8.0_25; {config[interproscan_path]} -f gff3 -f tsv -f html -f xml -iprlookup -goterms -pathways -d {params[output_annotation_directory]} --tempdir {params[interproscan_tempdir]} -i {input};'
-
 rule orfs_to_fasta_db:
     input:
         lambda wildcards: ["output/%s/orfs/%s_cds_prod.%s" % (wildcards.organism, name, wildcards.extension) for name in get_strains(wildcards)]
     output:
-        "proc/{organism}/concatenated_orfs.{extension}"
+        "proc/{organism}/%s.concatenated_orfs.{extension}" % config['Group_to_cluster']
     shell:  
         "cat {input} > {output}"
 
 rule parse_orfs:
     input:
-        fasta = "proc/{organism}/concatenated_orfs.fna"
+        fasta = "proc/{organism}/%s.concatenated_orfs.fna" % config['Group_to_cluster']
     output:
-        csv = "output/{organism}/{organism}.orfs.csv"
+        csv = "output/{organism}/{organism}.%s.orfs.csv" % config['Group_to_cluster']
     script:
         "parse_orfs.py"
 
 rule run_mmseqs:
     input:
-        "proc/{organism}/concatenated_orfs.faa"
+        "proc/{organism}/%s.concatenated_orfs.faa" % config['Group_to_cluster']
     output:
-        mmseqs_db = "proc/{organism}/clusters/DB",
-        clusters = "proc/{organism}/clusters/clu"
+        mmseqs_db = "proc/{organism}/clusters/DB.%s" % config['Group_to_cluster'],
+        clusters = "proc/{organism}/clusters/clu.%s" % config['Group_to_cluster']
     threads:
-        8
+        int(config['num_threads'])
     shell:
         """
         mkdir -p ./tmp/tmp_{wildcards.organism}/mmseqs;
@@ -84,18 +104,18 @@ rule run_mmseqs:
 
 rule clusters_to_tsv:
     input:
-        mmseqs_db = "proc/{organism}/clusters/DB",
-        clusters = "proc/{organism}/clusters/clu"
+        mmseqs_db = "proc/{organism}/clusters/DB.%s" % config['Group_to_cluster'],
+        clusters = "proc/{organism}/clusters/clu.%s" % config['Group_to_cluster']
     output:
-        clusters = "proc/{organism}/clusters/clusters.tsv"
+        clusters = "proc/{organism}/clusters/clusters.%s.tsv" % config['Group_to_cluster']
     shell:
         "{config[mmseqs_path]} createtsv {input.mmseqs_db} {input.mmseqs_db} {input.clusters} {output}"
 
 rule cluster_tsv_to_tidy:
     input:
-        clusters = "proc/{organism}/clusters/clusters.tsv"
+        clusters = "proc/{organism}/clusters/clusters.%s.tsv" % config['Group_to_cluster']
     output:
-        presence_absence_long = "output/{organism}/master_presence_absence.csv",
+        presence_absence_long = "output/{organism}/{organism}.%s.master_presence_absence.csv" % config['Group_to_cluster']
     run:
         R("""
         .libPaths(.libPaths()[2])
@@ -111,12 +131,129 @@ rule cluster_tsv_to_tidy:
         write_csv(presence_absence, path="{output.presence_absence_long}")
         """)
 
-rule combine_annotations:
+rule protein_to_strain:
     input:
-        lambda wildcards: ["output/%s/annotations/%s_cds_prod.faa.tsv" % (wildcards.organism, name) for name in get_strains(wildcards)]
+        lambda wildcards: ["output/%s/orfs/%s_cds_prod.faa" % (wildcards.organism, name) for name in get_strains(wildcards)]
     output:
-        strain_dataframe = "output/{organism}/{organism}.annotations.csv"
-    script:
-        "scripts/all_annotations.R"
+        "output/{organism}/{organism}.%s.prot_to_strain.csv" % config['Group_to_cluster']
+    run:
+        new_rows = []
+        for f in input:
+            strain = basename(f).replace('_cds_prod.faa', '')
+            
+            for s in SeqIO.parse(f, 'fasta'):
+                new_rows.append([s.id, strain])
 
+        df = pd.DataFrame(new_rows, columns=['protein_accession', 'strain'])
+        df.to_csv(output[0], index=False)
 
+rule make_master_table:
+    input:
+        pa = "output/{organism}/{organism}.%s.master_presence_absence.csv" % (config['Group_to_cluster']),
+        orfs = "output/{organism}/{organism}.%s.orfs.csv" % (config['Group_to_cluster']),
+        mapping = "output/{organism}/{organism}.%s.prot_to_strain.csv" % (config['Group_to_cluster']),
+        pops = "input/{organism}_0.000355362.txt.cluster.tab.txt"
+    output:
+        "output/{organism}/{organism}.%s.consolidated.csv" % (config['Group_to_cluster'])
+    run:
+        # Map of populations
+        pops = pd.read_table(input.pops, index_col=0)
+
+        # Master table of all orfs
+        df_seq = pd.read_csv(input.orfs, index_col = 'protein_accession')
+
+        # Master table of presence/absence
+        df_presence_absenence = pd.read_csv(input.pa, index_col='member')['cluster']
+        
+        # Mapping protein name to strain
+        df_map = pd.read_csv(input.mapping, index_col='protein_accession')
+
+        # Put everything together and output
+        df_concat = df_seq.join(df_presence_absenence)
+        df_concat = df_concat.join(df_map)
+        df_concat['Population'] = [pops.loc[s, 'Cluster_ID'] for s in df_concat.strain]
+        df_concat.to_csv(output[0])
+
+rule align_core_genes:
+    input:
+        "output/{organism}/{organism}.%s.consolidated.csv" % (config['Group_to_cluster'])
+    output:
+        "proc/{organism}/{organism}.%s.core.fna" % (config['Group_to_cluster'])
+
+    run:
+        consolidated = pd.read_csv(input[0], index_col=0)
+        num_strains = len(set(consolidated.strain))
+
+        seqs = defaultdict(str)
+        for prot_cluster, df in consolidated.groupby('cluster'):
+            
+            # checks if single copy and core
+            if len(set(df.strain)) == num_strains and len(df.strain) == num_strains:
+                outputfilename = 'proc/temp.fna'
+                aligned = outputfilename + '.aligned.fna'
+                with open(outputfilename, 'w') as outfile:
+                    for orf, strain in zip(df.orf_seq, df.strain):
+                        outfile.write('>' + strain + '\n' + orf + '\n')
+
+                system('muscle -in %s -out %s -quiet'%(outputfilename, aligned))
+
+                for s in SeqIO.parse(aligned, 'fasta'):
+                    seqs[s.id] += str(s.seq)
+        with open(output[0], 'w') as outfile:
+            for strain, seq in seqs.items():
+                outfile.write('>' + strain + '\n' + seq + '\n')
+
+rule get_flex_genes:
+    input:
+        consolidated="output/{organism}/{organism}.%s.consolidated.csv" % (config['Group_to_cluster']),
+        pops = "input/{organism}_0.000355362.txt.cluster.tab.txt",
+        alignment="proc/{organism}/{organism}.%s.core.fna" % (config['Group_to_cluster'])
+
+    output:
+        "output/{organism}/{organism}.%s.flex_genes.csv" % (config['Group_to_cluster'])
+
+    run:
+
+        
+        pops = pd.read_csv(input.pops, delimiter='\t')
+        
+        consolidated = pd.read_csv(input.consolidated, index_col=0)
+
+        aligned_seqs = {s.id: str(s.seq) for s in SeqIO.parse(input.alignment, 'fasta')}
+
+        pi_dict = {}
+        strain_count = {}
+
+        # Step 1, get within-population diversity for each population
+        for pop, df in pops.groupby('Cluster_ID'):
+            temp_seqs = []
+            num_strains = 0
+            for strain in df.Strain:
+                if strain in aligned_seqs:
+                    temp_seqs.append(aligned_seqs[strain])
+                    num_strains += 1
+            pi_dict[str(pop)] = calculate_pi(temp_seqs)
+            strain_count[pop] = num_strains
+        print(pi_dict)
+        # Step 2, get genes unique to each population
+        final = pd.DataFrame()
+        for cluster, df in consolidated.groupby('cluster'):
+
+            # if genes is present only in one population
+            if len(set(df.Population)) == 1:
+                pop = list(df.Population)[0]
+                pi = pi_dict[str(pop)]
+                # if it's present in all members of that population
+                if len(set(df.strain)) == strain_count[pop]:
+                    with open('proc/unaligned.fasta', 'w') as outfile:
+                        for orf, strain in zip(df.orf_seq, df.strain):
+                            outfile.write('>' + strain + '\n' + orf + '\n')
+                    system('muscle -in %s -out %s -quiet'%('proc/unaligned.fasta', 'proc/aligned.fasta'))
+                    seqs = [str(seq.seq) for seq in SeqIO.parse('proc/aligned.fasta', 'fasta')]
+                    recent, obs_pi = is_recent(seqs, config['alpha'], pi)
+                    if recent:
+                        temp = df.copy()
+                        temp['pi'] = pi
+                        temp['gene_pi'] = obs_pi
+                        final = final.append(temp)
+        final.to_csv(output[0])

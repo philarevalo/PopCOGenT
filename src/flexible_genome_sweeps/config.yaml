@@ -1,5 +1,13 @@
-interproscan_path:
-    "/nobackup1/josephe/interproscan/interproscan-5.17-56.0/interproscan.sh"
+genome_path:
+    "../../test2/"
+Group_to_cluster:
+    "0"
+num_threads:
+    "8"
+prefix:
+    "rumino"
+alpha:
+    0.05
 prodigal_path:
     "/home/parevalo/apps/bin/prodigal-2.6.3"
 mmseqs_path:
