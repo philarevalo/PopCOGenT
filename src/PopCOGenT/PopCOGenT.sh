@@ -1,10 +1,9 @@
 #!/bin/bash
 
-configfile=config.sh
+configfile=./config.sh
 source ${configfile}
-source activate HGT_cluster
+source activate PopCOGenT
 source ${mugsy_env}
-
 
 if [ "${slurm_str}" = "" ]
 	then
