@@ -266,12 +266,20 @@ rule get_flex_genes:
                        'Population']].copy()
         final['orf_contig'] = ['_'.join(pid.split('_')[0:-1]) for pid in final.orf_id]
         final.columns = ['orf_id',
-                         'orf_contig',
                          'orf_seq',
                          'orf_start',
                          'orf_end',
                          'orf_strand',
                          'orf_ortho_cluster',
                          'strain',
-                         'Population']
-        final.to_csv(output[0], index=False)
+                         'Population',
+                         'orf_contig']
+        final[['orf_id',
+               'orf_contig',
+               'orf_seq',
+               'orf_start',
+               'orf_end',
+               'orf_strand',
+               'orf_ortho_cluster',
+               'strain',
+               'Population']].to_csv(output[0], index=False)
