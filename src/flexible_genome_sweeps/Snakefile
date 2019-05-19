@@ -55,15 +55,14 @@ localrules: all, clean, core_genes
 
 rule all:
     input:
-        #"proc/%s/%s.%s.core.fna" % (config['prefix'], config['prefix'], config['Group_to_cluster'])
-        "output/%s/%s.%s.flex_genes.csv" % (config['prefix'],config['prefix'],config['Group_to_cluster'])
+        "output/%s/%s.%s.flex_genes.csv" % (config['base_name'],config['base_name'],config['Group_to_cluster'])
 
 localrules:
     target, clean
 
 rule run_prodigal:
     input:
-        config['genome_path'] + "/{name}.fasta"
+        config['genome_dir'] + "/{name}.fasta"
     output:
         faa = "output/{organism}/orfs/{name}_cds_prod.faa",
         fna = "output/{organism}/orfs/{name}_cds_prod.fna"
@@ -195,7 +194,7 @@ rule align_core_genes:
                     for orf, strain in zip(df.orf_seq, df.strain):
                         outfile.write('>' + strain + '\n' + orf + '\n')
 
-                system('muscle -in %s -out %s -quiet'%(outputfilename, aligned))
+                system('%s -in %s -out %s -quiet'%(config['muscle_path'], outputfilename, aligned))
 
                 for s in SeqIO.parse(aligned, 'fasta'):
                     seqs[s.id] += str(s.seq)
@@ -248,7 +247,7 @@ rule get_flex_genes:
                     with open('proc/unaligned.fasta', 'w') as outfile:
                         for orf, strain in zip(df.orf_seq, df.strain):
                             outfile.write('>' + strain + '\n' + orf + '\n')
-                    system('muscle -in %s -out %s -quiet'%('proc/unaligned.fasta', 'proc/aligned.fasta'))
+                    system('%s -in %s -out %s -quiet'%(config['muscle_path'], 'proc/unaligned.fasta', 'proc/aligned.fasta'))
                     seqs = [str(seq.seq) for seq in SeqIO.parse('proc/aligned.fasta', 'fasta')]
                     recent, obs_pi = is_recent(seqs, config['alpha'], pi)
                     if recent:
@@ -256,4 +255,23 @@ rule get_flex_genes:
                         temp['pi'] = pi
                         temp['gene_pi'] = obs_pi
                         final = final.append(temp)
-        final.to_csv(output[0])
+        final['orf_id'] = final.index
+        final = final[['orf_id',
+                       'orf_seq',
+                       'orf_start',
+                       'orf_end',
+                       'orf_strand',
+                       'cluster',
+                       'strain',
+                       'Population']].copy()
+        final['orf_contig'] = ['_'.join(pid.split('_')[0:-1]) for pid in final.orf_id]
+        final.columns = ['orf_id',
+                         'orf_contig',
+                         'orf_seq',
+                         'orf_start',
+                         'orf_end',
+                         'orf_strand',
+                         'orf_ortho_cluster',
+                         'strain',
+                         'Population']
+        final.to_csv(output[0], index=False)

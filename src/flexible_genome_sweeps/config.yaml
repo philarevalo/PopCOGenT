@@ -1,14 +1,16 @@
-genome_path:
-    "../../test2/"
-Group_to_cluster:
-    "0"
+genome_dir:
+    "../../test/"
+base_name:
+    "sulfolobus"
 num_threads:
     "8"
-prefix:
-    "rumino"
+Group_to_cluster:
+    "0"
 alpha:
     0.05
 prodigal_path:
     "/home/parevalo/apps/bin/prodigal-2.6.3"
 mmseqs_path:
     "/home/josephe/mmseqs2/bin/mmseqs"
+muscle_path:
+    "muscle"
