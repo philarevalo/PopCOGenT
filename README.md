@@ -9,7 +9,7 @@ Identifying microbial populations using networks of horizontal gene transfer.
 * A unix-based system
 * [Miniconda with python 3.7](https://docs.conda.io/en/latest/miniconda.html)
 
-The required python and R packages can be installed by creating a conda environment with the included `PopCOGenT.yml` file as follows:
+The required python and (most) R packages can be installed by creating a conda environment with the included `PopCOGenT.yml` file as follows:
 
 `conda env create -f PopCOGenT.yml`
 
@@ -24,6 +24,8 @@ The required python and R packages can be installed by creating a conda environm
 
 ## Core genome sweep identification
 * [phyml](http://www.atgc-montpellier.fr/phyml/)
+* [mugsy version 1.2.3](http://mugsy.sourceforge.net/)
+* The `ape` R package. To install, please follow the instructions under "All modules." Then, activate the environment (`source activate PopCOGenT`). Finally, run the `Rscript install_ape.R` from the Core genome sweep identification source directory.
 
 # Usage
 
