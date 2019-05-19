@@ -20,6 +20,7 @@ The required python and R packages can be installed by creating a conda environm
 
 ## Flexible genome sweep identification
 * [mmseqs2](https://github.com/soedinglab/MMseqs2)
+* [muscle 3.8.31](https://www.drive5.com/muscle/)
 
 ## Core genome sweep identification
 * [phyml](http://www.atgc-montpellier.fr/phyml/)
