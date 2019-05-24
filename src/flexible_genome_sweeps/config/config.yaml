@@ -1,6 +1,0 @@
-interproscan_path:
-    "/nobackup1/josephe/interproscan/interproscan-5.17-56.0/interproscan.sh"
-prodigal_path:
-    "/home/parevalo/apps/bin/prodigal-2.6.3"
-mmseqs_path:
-    "/home/josephe/mmseqs2/bin/mmseqs"
