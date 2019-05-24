@@ -3,7 +3,7 @@ Measures recent horizontal gene transfer between pairs of genomes using the leng
 
 # Important warnings
 
-PopCOGenT produces a lot of pairwise genome alignments. These are on the order of 10MB in size. 
+PopCOGenT produces a lot of pairwise genome alignments. These are on the order of 10MB in size, so please use the `discard_alignments` option if you wish to save space.
 
 # Input
 A directory of genomes to cluster in fasta format.
