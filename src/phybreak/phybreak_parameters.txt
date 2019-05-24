@@ -1,15 +1,24 @@
-project_dir = /nobackup1b/users/davevan/pop_genomes/ruminococcus/rumino_0_phybreak/
-contig_dir = /nobackup1b/users/davevan/pop_genomes/ruminococcus/genome/
-contig_extension = .fa
+project_dir = /nobackup1b/users/davevan/pop_genomes/serial_phybreak/
+input_contig_dir = /nobackup1b/users/davevan/pop_genomes/serial_phybreak/contigs/
+contig_dir = /nobackup1b/users/davevan/pop_genomes/serial_phybreak/genome/
+input_contig_extension = .fasta
 
-strain_list_file = strain_names.txt
-pop_infile_name = pops.txt
-output_prefix = rumino0
+pop_infile_name = ../../../../../Data/Clusters/sulfo_0.000355362.txt.cluster.tab.txt
+output_prefix = sulpho
+focus_population = 0.0
 
-ref_iso = NZFJUS010000011_NZFJUS010000011
-ref_contig = NZFJUS010000011_NZFJUS010000011_scaff #note that dash '-' characters are converted to underscore '_' characters by mugsy
+ref_iso = M1647_contigs
+ref_contig = M1647_contigs_1 #note that dash '-' characters are converted to underscore '_' characters by mugsy
 
 len_block_threshold = 3000 #minimum length of a degapped alignment block 
 gap_prop_thresh = 0.5 #maximum proportion of alignment block that can be '-'
 
 window_size = 100 #number of SNPs to include per tree
+window_overlap = 1 #number of SNPs to overlap between windows - larger overlaps will decrease the number of trees generated
+percentile_threshold = 0.05 #within population diversity percentile cutoff, 0.05 recommended
+min_physplit_window_size = 10 #minimum number of SNPs in a row that satisfy the monophyly and percentile threshold to warrant creating a new range to output
+
+MUGSY_source = source /home/davevan/applications/mugsy/mugsyenv.sh #location of source file for MUGSY alignment tool
+phyML_loc = PhyML #location of PhyML
+phyML_properties = -q -m JC69 -f e -c 2 -a 0.022 #-m JC69 -f e -c $Ncat -a $alpha
+ape_loc = library("ape",lib.loc ="/home/davevan/applications/R_libs/") #location of R library "ape"
