@@ -31,4 +31,4 @@ Set all relevant variables in `config.sh`. Variable descriptions are provided as
 
 # Execution
 
-Once all variables are set in `config.sh`, you can run PopCOGenT using the run script `
+Once all variables are set in `config.sh`, you can run PopCOGenT using the run script `PopCOGenT.sh`.
