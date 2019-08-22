@@ -6,7 +6,7 @@ Identifying microbial populations using networks of horizontal gene transfer.
 # Dependencies
 
 ## All modules
-* A unix-based system
+* A linux-based system (N.B., we are working on a way to get all the dependencies working properly on OSX, but as of now OSX is not a supported operating system).
 * [Miniconda with python 3.7](https://docs.conda.io/en/latest/miniconda.html)
 
 The required python and (most) R packages can be installed by creating a conda environment with the included `PopCOGenT.yml` file as follows:
