@@ -3,7 +3,8 @@ Measures recent horizontal gene transfer between pairs of genomes using the leng
 
 # Important warnings
 
-PopCOGenT produces a lot of pairwise genome alignments. These are on the order of 10MB in size, so please use the `discard_alignments` option if you wish to save space.
+* PopCOGenT produces a lot of pairwise genome alignments. These are on the order of 10MB in size, so please use the `discard_alignments` option if you wish to save space.
+* The config file has options for running on slurm. These are not functional (23 August 2019) and should be left as empty strings. If you want to run PopCOGenT on a HPCC, we recommend that you run PopCOGenT.sh as a batch script in your job management system of choice. Make sure that you request a node that has resources that match what you put in the config file (i.e., if you set the `-n` option to 4, request a node with 4 cores).
 
 # Input
 A directory of genomes to cluster in fasta format.
