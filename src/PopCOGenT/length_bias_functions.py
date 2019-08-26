@@ -59,38 +59,41 @@ def align_genomes(contig1,
     strain1 = '.'.join(path.basename(contig1).split('.')[0:-3])
     strain2 = '.'.join(path.basename(contig2).split('.')[0:-3])
     correct_name = '{strain1}_@_{strain2}.maf'.format(strain1 = strain1, strain2 = strain2) 
+    final_name = alignment_dir+'/'+correct_name
 
-    # make a temporary contig file due to parallelization issues with reading from the same filename
-    out_id_1 = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for i in range(16))
-    out_id_2 = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for i in range(16))
-
-
-    system('cp {contig1} {alignment_dir}/{randomcontigname1}.tempcontig'.format(contig1=contig1, randomcontigname1=out_id_1, alignment_dir=alignment_dir))
-    system('cp {contig2} {alignment_dir}/{randomcontigname2}.tempcontig'.format(contig2=contig2, randomcontigname2=out_id_2, alignment_dir=alignment_dir))
-
-    # Aligning the genomes
-    prefix = out_id_1 + out_id_2
-    print('{mugsypath} --directory {align_directory} --prefix {prefix} {align_directory}/{randomcontigname1}.tempcontig {align_directory}/{randomcontigname2}.tempcontig'.format(mugsypath=mugsy_path,
-                                                                                                                        align_directory=alignment_dir,
-                                                                                                                        prefix = prefix,
-                                                                                                                        randomcontigname1=out_id_1,
-                                                                                                                        randomcontigname2 = out_id_2))
-    system('{mugsypath} --directory {align_directory} --prefix {prefix} {align_directory}/{randomcontigname1}.tempcontig {align_directory}/{randomcontigname2}.tempcontig'.format(mugsypath=mugsy_path,
-                                                                                                                        align_directory=alignment_dir,
-                                                                                                                        prefix = prefix,
-                                                                                                                        randomcontigname1=out_id_1,
-                                                                                                                        randomcontigname2 = out_id_2))
+    if not path.exists(final_name): # Only run the alignment if the file doesn't exist
+        # make a temporary contig file due to parallelization issues with reading from the same filename
+        out_id_1 = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for i in range(16))
+        out_id_2 = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for i in range(16))
 
 
-    # Remove unneeded files
-    remove('{align_directory}/{random_contig1}.tempcontig'.format(random_contig1=out_id_1, align_directory=alignment_dir))
-    remove('{align_directory}/{random_contig2}.tempcontig'.format(random_contig2=out_id_2, align_directory=alignment_dir))
-    remove('{align_directory}/{prefix}'.format(prefix=prefix, align_directory=alignment_dir))
-    remove('{prefix}.mugsy.log'.format(prefix=prefix))
+        system('cp {contig1} {alignment_dir}/{randomcontigname1}.tempcontig'.format(contig1=contig1, randomcontigname1=out_id_1, alignment_dir=alignment_dir))
+        system('cp {contig2} {alignment_dir}/{randomcontigname2}.tempcontig'.format(contig2=contig2, randomcontigname2=out_id_2, alignment_dir=alignment_dir))
 
-    system('mv {random_alignment_name} {correct_name}'.format(random_alignment_name=alignment_dir+'/'+prefix +'.maf',
-                                                              correct_name=alignment_dir+'/'+correct_name))
-    return alignment_dir+'/'+correct_name
+        # Aligning the genomes
+        prefix = out_id_1 + out_id_2
+        print('{mugsypath} --directory {align_directory} --prefix {prefix} {align_directory}/{randomcontigname1}.tempcontig {align_directory}/{randomcontigname2}.tempcontig'.format(mugsypath=mugsy_path,
+                                                                                                                            align_directory=alignment_dir,
+                                                                                                                            prefix = prefix,
+                                                                                                                            randomcontigname1=out_id_1,
+                                                                                                                            randomcontigname2 = out_id_2))
+        system('{mugsypath} --directory {align_directory} --prefix {prefix} {align_directory}/{randomcontigname1}.tempcontig {align_directory}/{randomcontigname2}.tempcontig'.format(mugsypath=mugsy_path,
+                                                                                                                            align_directory=alignment_dir,
+                                                                                                                            prefix = prefix,
+                                                                                                                            randomcontigname1=out_id_1,
+                                                                                                                            randomcontigname2 = out_id_2))
+
+
+        # Remove unneeded files
+        remove('{align_directory}/{random_contig1}.tempcontig'.format(random_contig1=out_id_1, align_directory=alignment_dir))
+        remove('{align_directory}/{random_contig2}.tempcontig'.format(random_contig2=out_id_2, align_directory=alignment_dir))
+        remove('{align_directory}/{prefix}'.format(prefix=prefix, align_directory=alignment_dir))
+        remove('{prefix}.mugsy.log'.format(prefix=prefix))
+
+        system('mv {random_alignment_name} {correct_name}'.format(random_alignment_name=alignment_dir+'/'+prefix +'.maf',
+                                                                  correct_name=alignment_dir+'/'+correct_name))
+        
+    return final_name
 
 def calculate_length_bias(input_alignment,
                           genome_1_file,
@@ -101,12 +104,13 @@ def calculate_length_bias(input_alignment,
     g1size = sum([len(s) for s in SeqIO.parse(genome_1_file, 'fasta')])
     g2size = sum([len(s) for s in SeqIO.parse(genome_2_file, 'fasta')])
 
-    edge = get_transfer_measurement(input_alignment,
-                                    g1size,
-                                    g2size)
+    if not path.exists(output_file): # only calculate the length bias if the file doesn't exist
+        edge = get_transfer_measurement(input_alignment,
+                                        g1size,
+                                        g2size)
 
-    with open(output_file, 'w') as outfile:
-        outfile.write(edge + '\n')
+        with open(output_file, 'w') as outfile:
+            outfile.write(edge + '\n')
 
 def get_transfer_measurement(alignment,
                              g1size,
