@@ -15,7 +15,7 @@ gap_prop_thresh = 0.5 #maximum proportion of alignment block that can be '-'
 
 window_size = 100 #number of SNPs to include per tree
 window_overlap = 1 #number of SNPs to overlap between windows - larger overlaps will decrease the number of trees generated
-percentile_threshold = 0.05 #within population diversity percentile cutoff, 0.05 recommended
+percentile_threshold = 5 #within population diversity percentile cutoff, 5% recommended
 min_physplit_window_size = 10 #minimum number of SNPs in a row that satisfy the monophyly and percentile threshold to warrant creating a new range to output
 
 MUGSY_source = source /home/davevan/applications/mugsy/mugsyenv.sh #location of source file for MUGSY alignment tool
