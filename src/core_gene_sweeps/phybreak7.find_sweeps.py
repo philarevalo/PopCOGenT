@@ -40,8 +40,10 @@ def concatenate_windows(sweepdf, length_cutoff=1000):
             final_df.loc[i, 'End'] = sweepdf.loc[max(blocks), 'End']
             final_df.loc[i, 'Start tree'] = min(blocks)
             final_df.loc[i, 'End tree'] = max(blocks)
-
-    final_df['Midpoint'] = final_df.Start + ((final_df.End - final_df.Start) // 2)
+    if len(final_df) > 0:
+        final_df['Midpoint'] = final_df.Start + ((final_df.End - final_df.Start) // 2)
+    else:
+        print('No sweeps found')
     return final_df
 
 def calc_all_divs(concatenated_positions,
@@ -67,7 +69,6 @@ def calc_all_divs(concatenated_positions,
                             concatenated_positions.loc[i, 'Start tree'],
                             concatenated_positions.loc[i, 'End tree'],
                             pop_div]
-        
     finaldf['Length'] = finaldf.End - finaldf.Start
     finaldf['Midpoint'] = finaldf.Start + ((finaldf.End - finaldf.Start) // 2)
     calculate_ci(finaldf, alpha, pi)
@@ -99,13 +100,13 @@ def find_sweeps(phybreak_df,
                 pi_info_df,
                 pop_pi, alpha,
                 pop_name,
-                pop_list):
+                pop_list,
+                threshold):
     full_df = pd.merge(pi_info_df, phybreak_df)
     full_df.index = full_df.block
     calculate_ci(full_df, alpha, pop_pi)
-    print(full_df[['Start', 'End']])
     # Finds cutoff based on fraction of branch length within the focus population
-    cutoff = np.percentile(full_df.focus, 5)
+    cutoff = np.percentile(full_df.focus, threshold)
     trees_passing_phy_criteria = full_df[passes_phylo_criteria(full_df, cutoff)]
     concat = concatenate_windows(trees_passing_phy_criteria, length_cutoff=500)
     concat = calc_all_divs(concat, pop_list, pop_pi, alpha)
@@ -202,7 +203,6 @@ total_alignment = {s.id : str(s.seq) for s in SeqIO.parse(msa_file, 'fasta')}
 
 pops = pd.read_table(pop_infile_name, dtype=str)
 pop_list = list(pops[pops.Cluster_ID == focus_population]['Strain'])
-print(pop_list)
 
 seqs = {}
 for s in SeqIO.parse(msa_file, 'fasta'):
@@ -217,6 +217,6 @@ div_df.index = div_df['tree_no']
 div_df['Midpoint'] = div_df.Start + (div_df.End - div_df.Start) // 2
 
 div_df.index.name = ''
-concat_pop = find_sweeps(phybreak_result, div_df, p0, 0.95, focus_population, pop_list)
+concat_pop = find_sweeps(phybreak_result, div_df, p0, 0.95, focus_population, pop_list, percentile_threshold)
 final = concat_pop[(concat_pop.pop_pi < concat_pop.ci_low) | (concat_pop.pop_pi == 0)]
 final.to_csv('output/%s.%s.core_sweeps.csv'%(output_prefix, focus_population))
