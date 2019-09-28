@@ -21,4 +21,3 @@ min_physplit_window_size = 10 #minimum number of SNPs in a row that satisfy the 
 MUGSY_source = source /home/davevan/applications/mugsy/mugsyenv.sh #location of source file for MUGSY alignment tool
 phyML_loc = PhyML #location of PhyML
 phyML_properties = -q -m JC69 -f e -c 2 -a 0.022 #-m JC69 -f e -c $Ncat -a $alpha
-ape_loc = library("ape",lib.loc ="/home/davevan/applications/R_libs/") #location of R library "ape"
