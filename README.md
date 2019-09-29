@@ -1,7 +1,9 @@
 # PopCOGenT
 
 # Purpose
-Identifying microbial populations using networks of horizontal gene transfer.
+Identifying microbial populations using networks of horizontal gene transfer. For more detailed information on the method, you can read our paper here: 
+
+Arevalo P., VanInsberghe D., Elsherbini J., Gore J., Polz M.F. (2019). [A reverse ecology approachbased on a biological definition of microbial populations](https://linkinghub.elsevier.com/retrieve/pii/S0092867419307366). Cell, 178(4).doi:10.1016/j.cell.2019.06.03
 
 # Dependencies
 
@@ -29,4 +31,4 @@ The required python and (most) R packages can be installed by creating a conda e
 
 # Usage
 
-Instructions for the usage of each module are provided in each module's source code directory.
+Instructions for the usage of each module are provided in each module's source code directory. Populations are identified with PopCOGenT and then core and flexible genome sweeps differentiating the most closely related populations (i.e., populations that are still connected by some gene flow but are still characterized by significantly more gene flow within the population than between populations) can be identified with the core and flexible genome sweep modules. We do not recommend running the sweep modules to identify sweeps between populations that are completely disconnected by gene flow (i.e., species). 
