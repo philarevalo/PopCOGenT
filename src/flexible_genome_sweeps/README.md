@@ -29,7 +29,7 @@ Pipeline to find and identify population-specific ortholog clusters in microbial
 * `muscle_path`: provide absolute path to muscle executable
 
 # Execution
-Run the pipeline by executing `sh snakemake.sh`.
+Run the pipeline by executing `bash snakemake.sh`.
 
 
 
