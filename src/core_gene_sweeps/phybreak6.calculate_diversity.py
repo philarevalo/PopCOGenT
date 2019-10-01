@@ -114,6 +114,7 @@ seqs = {}
 for s in SeqIO.parse('%s/%s.core.fasta'%(input_dir, output_prefix), 'fasta'):
     seqs[s.id] = str(s.seq)
 
+print('Calculating genome-wide diversity.')
 # Calculate pi for each population
 new_rows = []
 for pop, popdf in df.groupby('Cluster_ID'):
@@ -122,8 +123,9 @@ for pop, popdf in df.groupby('Cluster_ID'):
     new_rows.append([pop, pi])
 population_pi = pd.DataFrame(new_rows, columns=['Cluster_ID', 'Pi'])
 population_pi.to_csv('output/%s_pop_pi.csv'%output_prefix, index=False)
+print('Done calculating genome-wide diversity.')
 
-
+print('Calculating diversity of individual alignments')
 # Split alignments of all 100 SNP trees into individual trees
 tree_no = 1
 new_lines = []
@@ -137,10 +139,13 @@ for line in open('%s/%s.phy'%(phy_split_dir, output_prefix)):
                 # Diversity within a population
                 intra_pop_div, length = calc_pop_div(strains, all_seqs)
                 new_rows.append([tree_no, pop, intra_pop_div, length])
+            if tree_no%100 == 0:
+                print('Finished calculation for %s alignments'%tree_no)
             tree_no += 1
         new_lines = []
     else:
         new_lines.append(line)
 
+print('Done calculating individual alignment diversity')
 intra_df = pd.DataFrame(new_rows,columns=['tree_no', 'Cluster_ID', 'block_pi', 'Length'])
 intra_df.to_csv('output/%s_block_pi.csv'%output_prefix, index=False)
