@@ -25,7 +25,7 @@ The required python and (most) R packages can be installed by creating a conda e
 * [muscle 3.8.31](https://www.drive5.com/muscle/)
 
 ## Core genome sweep identification
-* [phyml](http://www.atgc-montpellier.fr/phyml/)
+* [phyml version 3.1](http://www.atgc-montpellier.fr/phyml/versions.php)
 * [mugsy version 1.2.3](http://mugsy.sourceforge.net/)
 * The `ape` R package. To install, please follow the instructions under "All modules." Then, activate the environment (`source activate PopCOGenT`). Finally, run the `Rscript install_ape.R` from the Core genome sweep identification source directory.
 
