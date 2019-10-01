@@ -1,5 +1,11 @@
 # Purpose
-Finds core genome sweep regions by identifying low diversity, monophyletic (within a population) regions in a whole-genome alignment.
+Finds core genome sweep regions by identifying low diversity, monophyletic (within a population) regions in a whole-genome alignment. 
+
+# Important caveats
+
+* This module is only designed to detect sweeps that differentiate the most closely related populations, i.e., populations that are still connected by some gene flow. This corresponds to populations that share the same `Main_cluster` designation from PopCOGenT but different `sub_cluster` assignments. For example, this can detect sweeps that differentiate population `0.0` from population `0.1` but not sweeps differentiating population `0.0` from population `1.0`. 
+
+* Because this module requires the creation of a whole genome alignment and the generation of thousands of phylogenies, we have only been successful at using it for examining groups of less than 100 genomes. That is, the `Main_cluster` examined should not have more than 100 members.
 
 # Setup
 
