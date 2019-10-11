@@ -13,12 +13,15 @@ Arevalo P., VanInsberghe D., Elsherbini J., Gore J., Polz M.F. (2019). [A revers
 
 The required python and (most) R packages can be installed by creating a conda environment with the included `PopCOGenT.yml` file as follows:
 
+`conda config --set restore_free_channel true`
 `conda env create -f PopCOGenT.yml`
+
+The first command is necessary as we use some versions of packages that are only availble on the `free` conda channel. The `PopCOGenT.yml` file reflects the versions we used for our publication and at this time we cannot guarantee forward compatability with new versions of the dependencies. 
 
 ## PopCOGenT
 
 * [mugsy version 1.2.3](http://mugsy.sourceforge.net/)
-* [Infomap](https://www.mapequation.org/code.html#Installation)
+* [Infomap version 0.18.3, will likely work with 0.20](https://www.mapequation.org/code.html#Installation)
 
 ## Flexible genome sweep identification
 * [mmseqs2](https://github.com/soedinglab/MMseqs2)
