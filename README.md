@@ -25,7 +25,7 @@ The first command is necessary as we use some versions of packages that are only
 * [Infomap version 0.18.3, will likely work with 0.20](https://www.mapequation.org/code.html#Installation)
 
 ## Flexible genome sweep identification
-* [mmseqs2](https://github.com/soedinglab/MMseqs2)
+* [mmseqs2 version vNatBiotech](https://github.com/soedinglab/MMseqs2)
 * [muscle 3.8.31](https://www.drive5.com/muscle/)
 
 ## Core genome sweep identification
