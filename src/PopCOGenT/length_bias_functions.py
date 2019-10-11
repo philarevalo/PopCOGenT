@@ -151,21 +151,26 @@ def get_transfer_measurement(alignment,
     init_div_count = naive_div_count(Concat_S1, Concat_S2)
     init_div = (init_div_count * 1.0) / alignment_size
 
-    initial = id_var_window_counts(Concat_S1, Concat_S2)
-    initial_cumulative = get_cumulative_window_spectrum(initial, alignment_size)
-    null_expect = single_param_null_model(np.arange(0, len(initial_cumulative)), init_div)
-    observed_sum_sq_diff = np.sum(np.square(np.subtract(initial_cumulative, null_expect)))
+    if init_div > 0:
+        initial = id_var_window_counts(Concat_S1, Concat_S2)
+        initial_cumulative = get_cumulative_window_spectrum(initial, alignment_size)
+        null_expect = single_param_null_model(np.arange(0, len(initial_cumulative)), init_div)
+        observed_sum_sq_diff = np.sum(np.square(np.subtract(initial_cumulative, null_expect)))
 
-    # Given a distribution of identical windows, bootstraps to find
-    # length bias (SSD) confidence interval
-    ssds = []
-    for t in range(0, 200):
-        initial_boot = np.random.choice(initial, len(initial), replace=True)
-        initial_cumulative_boot = get_cumulative_window_spectrum(initial_boot, alignment_size)
-        ssd_boot = np.sum(np.square(np.subtract(initial_cumulative_boot, null_expect)))
-        ssds.append(ssd_boot)
-    low_percentile = np.percentile(ssds, 0.5)
-    high_percentile = np.percentile(ssds, 99.5)
+        # Given a distribution of identical windows, bootstraps to find
+        # length bias (SSD) confidence interval
+        ssds = []
+        for t in range(0, 200):
+            initial_boot = np.random.choice(initial, len(initial), replace=True)
+            initial_cumulative_boot = get_cumulative_window_spectrum(initial_boot, alignment_size)
+            ssd_boot = np.sum(np.square(np.subtract(initial_cumulative_boot, null_expect)))
+            ssds.append(ssd_boot)
+        low_percentile = np.percentile(ssds, 0.5)
+        high_percentile = np.percentile(ssds, 99.5)
+    else:
+        observed_sum_sq_diff = np.nan
+        low_percentile = np.nan
+        high_percentile = np.nan
 
     edge = '\t'.join([strain1,
                      strain2,
