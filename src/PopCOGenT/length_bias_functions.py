@@ -115,7 +115,7 @@ def calculate_length_bias(input_alignment,
 def get_transfer_measurement(alignment,
                              g1size,
                              g2size,
-                             min_block_size=1000,
+                             min_block_size=0,
                              filtering_window=1000):
 
     # Initializes local variables
