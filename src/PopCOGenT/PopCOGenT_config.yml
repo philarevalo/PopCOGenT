@@ -1,0 +1,28 @@
+genome_directory:
+    # file extension for unaligned nucleotide files
+    "test"
+
+genome_extension:
+    # file extension for unaligned amino acid files
+    ".fasta"
+
+output_directory:
+    # directory where unaligned proteins are
+    "output/"
+
+base_name:
+    "test"
+
+alignment_dir:
+    # Must provide absolute path
+    "/nobackup1b/users/parevalo/testing/alignments/"
+
+mugsy_path:
+    # Must provide absolute path
+    "/home/parevalo/apps/mugsy_trunk/mugsy"
+
+clonal_cutoff:
+    "0.000355362"
+
+infomap_path:
+    "/nobackup1/parevalo/Infomap/Infomap"
