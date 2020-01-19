@@ -1,0 +1,5 @@
+__default__:
+    nodes: 1
+    cores: 1
+    partition: ""
+    mem: 4000
