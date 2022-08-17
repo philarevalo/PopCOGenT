@@ -1,0 +1,7 @@
+base_name: sulfolobus # Base name for final output files ust a prefix to identify your outputs.
+genome_dir: /Users/parevalo/Code/PopCOGenT/test/ # Path to genome files.
+genome_ext: .fasta # Genome file filename extension.
+final_output_dir: /Users/parevalo/Code/PopCOGenT/outputs/ # Output directory for the final output files. Will be created if it doesn't exist.
+keep_alignments: yes
+num_threads: 8
+single_cell: no
