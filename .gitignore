@@ -7,4 +7,5 @@ slurm*.out
 tmp/
 output/
 proc/
+mugsy/
 .ipynb_checkpoints/
