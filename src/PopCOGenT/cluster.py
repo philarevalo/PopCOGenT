@@ -1,4 +1,3 @@
-import argparse
 import networkx as nx
 import pandas as pd
 import itertools
@@ -11,7 +10,9 @@ import statsmodels.api as sm
 import numpy as np
 
 
-def main():
+def check_inputs(args):
+    import argparse
+
     parser = argparse.ArgumentParser(
         description=('Clusters genomes based on length bias measurement'),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -34,59 +35,41 @@ def main():
                         type=str,
                         default='',
                         help='Arguments to pass to infomap command')
-    parser.add_argument('--infomap_path',
-                        type=str,
-                        default=None,
-                        help='Path to infomap binary')
     parser.add_argument('--single_cell', default=False, action='store_true')
-    
+
     # Defining variables from input
     args = parser.parse_args()
 
-    # Checks inputs to see if they're valid
-    check_inputs(args)
-    infile = args.length_bias_file
-    infomap_path = args.infomap_path
-    infomap_args = args.infomap_args
-    outfile_base = args.base_name
-    clonal_cutoff = args.clonal_cutoff
-    output_dir = args.output_directory
-    single_cell = args.single_cell
+    # Check for output directory. Makes it if it isn't there.
+    if not os.path.exists(args.output_directory):
+        print('Ouput directory does not exist. Creating new directory.')
+        os.makedirs(args.output_directory)
 
-    # Initializing lists and dictionaries
-    final_clusters = defaultdict(list)
-    initial_edgefile = 'infomap_out/{base}_{mindiv}.txt'.format(base=outfile_base,
-                                                                 mindiv=str(clonal_cutoff))
-    cluster_file = '{output_dir}/{initial_edgefile}.cluster.tab.txt'.format(initial_edgefile=os.path.basename(initial_edgefile),
-                                                                            output_dir=output_dir)
-    graphml_unclust_name = '{output_dir}/{initial_edgefile}.unclust.graphml'.format(initial_edgefile=os.path.basename(initial_edgefile),
-                                                                                    output_dir=output_dir)
+    if not os.path.exists('infomap_out/'):
+        print('Ouput directory does not exist. Creating new directory.')
+        os.makedirs('infomap_out')
 
-    # Make the initial network edgefile, graph object, and graphml file
-    make_edgefile(infile,
-                  initial_edgefile,
-                  clonal_cutoff=clonal_cutoff,
-                  single_cell=single_cell,
-                  linear_model=negative_selection_linear_fit())
-    G_unclust = nx.read_edgelist(initial_edgefile, data=(('weight', float),))
-    nx.write_graphml(G_unclust, graphml_unclust_name)
+    return args
 
+
+def make_clusterfile(initial_edgefile, cluster_file, infomap_out=None, infomap_args=""):
     # Loops over each connected component of the initial network
-    for i, component in enumerate(nx.connected_component_subgraphs(G_unclust)):
+    infomap_out = infomap_out or os.path.dirname(initial_edgefile)
+    final_clusters = defaultdict(list)
 
+    G_unclust = nx.read_edgelist(initial_edgefile, data=(('weight', float),))
+    for i, component in enumerate(
+        G_unclust.subgraph(c) for c in nx.connected_components(G_unclust)
+    ):
         # First checks if the component contains more than 1 node
         if(len(component.nodes())) > 1:
-            outname = '{initial_edgefile}_{clustnum}.net'.format(initial_edgefile=initial_edgefile,
-                                                                 clustnum=str(i))
-            infomap_outfile = '{initial_edgefile}_{clustnum}.tree'.format(initial_edgefile=initial_edgefile,
-                                                                          clustnum=str(i))
-
+            outname = f'{initial_edgefile}_{i}.net'
             nx.write_pajek(component, outname)
 
             # Modifes pajek file to a format the infomap understands
             new_lines = []
             at_edges = False
-            with open(outname, 'r') as old_pajek:
+            with open(outname) as old_pajek:
                 for line in old_pajek:
                     if 'edges' in line:
                         at_edges = True
@@ -104,23 +87,22 @@ def main():
                 outfile.writelines(new_lines)
 
             # Runs infomap
-            cmd = '{infomap} -i pajek {infomap_args} {pajek_file} infomap_out/'.format(infomap=infomap_path,
-                                                                                       pajek_file=outname,
-                                                                                       infomap_args=infomap_args)
-            os.system(cmd)
+            outname_base = os.path.splitext(os.path.basename(outname))[0]
+            os.system(f'Infomap {outname} {infomap_out} --out-name {outname_base}')
+            infomap_outfile = f'{infomap_out}/{outname_base}.tree'
 
             # Parse the final cluster file
 
             # Get subclusters and number them
             subcluster_strings = []
-            for line in open(infomap_outfile, 'r'):
+            for line in open(infomap_outfile):
                 if line[0] != '#' and line != '':
                     cluster_string, flow, name, node = line.split()
                     subcluster_strings.append(':'.join(cluster_string.split(':')[0:-1]))
             subcluster_strings = sorted(list(set(subcluster_strings)))
 
             # Fill up the final cluster dictionary
-            for line in open(infomap_outfile, 'r'):
+            for line in open(infomap_outfile):
                 if line[0] != '#' and line != '':
                     cluster_string, flow, name, node = line.split()
                     subcluster_string = ':'.join(cluster_string.split(':')[0:-1])
@@ -175,20 +157,6 @@ def main():
                                            clust.split('.')[0],
                                            clust.split('.')[1],
                                            clonal_complex + '\n']))
-def check_inputs(args):
-
-    # Check for output directory. Makes it if it isn't there.
-    if not os.path.exists(args.output_directory):
-        print('Ouput directory does not exist. Creating new directory.')
-        os.makedirs(args.output_directory)
-
-    if not os.path.exists('infomap_out/'):
-        print('Ouput directory does not exist. Creating new directory.')
-        os.makedirs('infomap_out')
-
-    # Checks infomap
-    if not os.path.exists(args.infomap_path):
-        raise FileNotFoundError('Invalid infomap path.')
 
 
 def negative_selection_linear_fit():
@@ -227,22 +195,24 @@ def make_edgefile(infile,
     predict_df['Genome_size'] = trn_table['Larger genome'] / 1e6
     predict_df['constant'] = 1
 
-    trn_table['Negative selection cutoff'] = linear_model.get_prediction(predict_df).summary_frame(alpha=0.1)['obs_ci_upper']
+    trn_table['Negative selection cutoff'] = (
+        linear_model.get_prediction(predict_df).summary_frame(alpha=0.1)['obs_ci_upper']
+        if linear_model is not None
+        else negative_selection_linear_fit()
+    )
 
     # Filter negative selection cutoff
     if single_cell:  # Special filtering just for single cell genomes
         neg_cutoff = max(trn_table['Negative selection cutoff'])
     else:  # Otherwise just use the negative selection index
-         neg_cutoff = trn_table['Negative selection cutoff']
+        neg_cutoff = trn_table['Negative selection cutoff']
 
     trn_table = trn_table[trn_table['SSD 95 CI low'] > neg_cutoff]
 
     # Find clonal clusters
     clonal_df = trn_table[trn_table['Initial divergence'] < clonal_cutoff][['Strain 1', 'Strain 2']]
     print(clonal_df)
-    clones = nx.from_pandas_dataframe(clonal_df,
-                                      'Strain 1',
-                                      'Strain 2')
+    clones = nx.from_pandas_dataframe(clonal_df, 'Strain 1', 'Strain 2')
     clonal_components = tuple(nx.connected_component_subgraphs(clones))
     flat_clones = [node for cluster in clonal_components for node in cluster.nodes()]
 
@@ -310,6 +280,37 @@ def make_edgefile(infile,
         for n in set(all_strains) - set(non_singleton):
             outfile.write('\t'.join([str(n), str(n), '0\n']))
 
+    return outfile_name
+
 
 if __name__ == '__main__':
-    main()
+    # Checks inputs to see if they're valid
+    args = check_inputs()
+
+    infile = args.length_bias_file
+    outfile_base = args.base_name
+    output_dir = args.output_directory
+    single_cell = args.single_cell
+    clonal_cutoff = args.clonal_cutoff
+    infomap_args = args.infomap_args
+
+    initial_edgefile = make_edgefile(
+        infile,
+        f'{output_dir}/{outfile_base}_{clonal_cutoff}.tsv',
+        clonal_cutoff=0,
+        single_cell=False,
+        linear_model=None
+    )
+
+    # Make the initial network edgefile, graph object, and graphml file
+    nx.write_graphml(
+        nx.read_edgelist(initial_edgefile, data=(('weight', float),)),
+        f'{output_dir}/{outfile_base}_{clonal_cutoff}.unclust.graphml'
+    )
+
+    make_clusterfile(
+        initial_edgefile,
+        f'{output_dir}/{outfile_base}_{clonal_cutoff}.cluster.tsv',
+        output_dir,
+        infomap_args,
+    )
