@@ -25,9 +25,9 @@ if config.get("test", False):
 
 rule cluster:
     input:
-        edge='{prefix}-length_bias-{clonal_cutoff}.edge.tsv',
+        edge="{prefix}-length_bias-{clonal_cutoff}.edge.tsv",
     output:
-        cluster='{prefix}-length_bias-{clonal_cutoff}.cluster.tsv',
+        cluster="{prefix}-length_bias-{clonal_cutoff}.cluster.tsv",
     params:
         module=MODULE_PATH,
         tmpdir="{prefix}-length_bias_proc/infomap",
@@ -57,7 +57,7 @@ rule cluster_make_edgefile:
     input:
         all_bias="{prefix}-length_bias.tsv",
     output:
-        edge='{prefix}-length_bias-{clonal_cutoff}.edge.tsv',
+        edge="{prefix}-length_bias-{clonal_cutoff}.edge.tsv",
     params:
         module=MODULE_PATH,
         clonal_cutoff="{clonal_cutoff}",
@@ -84,7 +84,7 @@ rule cluster_make_edgefile:
 
 rule cluster_make_graphml:
     input:
-        edge='{prefix}-length_bias-{clonal_cutoff}.edge.tsv',
+        edge="{prefix}-length_bias-{clonal_cutoff}.edge.tsv",
     output:
         graphml="{prefix}-length_bias-{clonal_cutoff}.unclust.graphml",
     params:
@@ -109,15 +109,14 @@ rule cluster_make_graphml:
 
 checkpoint ls_genome_files:
     input:
-        ls="{any}.fasta.ls"
+        ls="{any}.fasta.ls",
     output:
-        ls="{any}-length_bias_proc/genomes.tsv"
+        ls="{any}-length_bias_proc/genomes.tsv",
     run:
         with open(input.ls) as fi:
             genomes = {
                 os.path.splitext(os.path.basename(v))[0]: v
-                for v
-                in (i.strip() for i in fi)
+                for v in (i.strip() for i in fi)
             }
         with open(output.ls, "w") as fo:
             for g, p in genomes.items():
@@ -125,20 +124,19 @@ checkpoint ls_genome_files:
                     fo.write(f"{g}\t{p}\n")
 
 
-def expand_genome_bias(bias="{any}-length_bias_proc/alignment/{g1}_@_{g2}.length_bias.txt"):
+
+def expand_genome_bias(
+    bias="{any}-length_bias_proc/alignment/{g1}_@_{g2}.length_bias.txt",
+):
     def _f(wildcards):
         mags_file = checkpoints.ls_genome_files.get(**wildcards).output.ls
         with open(mags_file) as fi:
-            genomes = {
-                k: v
-                for k, v
-                in (i.strip().split() for i in fi)
-            }
+            genomes = {k: v for k, v in (i.strip().split() for i in fi)}
         return [
             bias.format(g1=g1, g2=g2, **wildcards)
-            for g1, g2
-            in itertools.combinations(genomes, 2)
+            for g1, g2 in itertools.combinations(genomes, 2)
         ]
+
     return _f
 
 
@@ -150,7 +148,7 @@ rule concat_length_bias_files:
     output:
         bias="{any}-length_bias.tsv",
     params:
-        module=MODULE_PATH
+        module=MODULE_PATH,
     conda:
         "PopCOGenT.yml"
     shell:
@@ -168,13 +166,13 @@ rule concat_length_bias_files:
 
 rule make_length_bias_file:
     input:
-        g1 = "{any}-length_bias_proc/renamed_mugsy/{g1}.fa",
-        g2 = "{any}-length_bias_proc/renamed_mugsy/{g2}.fa",
-        maf = "{any}-length_bias_proc/mugsy/{g1}_@_{g2}.maf",
+        g1="{any}-length_bias_proc/renamed_mugsy/{g1}.fa",
+        g2="{any}-length_bias_proc/renamed_mugsy/{g2}.fa",
+        maf="{any}-length_bias_proc/mugsy/{g1}_@_{g2}.maf",
     output:
-        bias = "{any}-length_bias_proc/alignment/{g1}_@_{g2}.length_bias.txt",
+        bias="{any}-length_bias_proc/alignment/{g1}_@_{g2}.length_bias.txt",
     params:
-        module=MODULE_PATH
+        module=MODULE_PATH,
     conda:
         "PopCOGenT.yml"
     shell:
@@ -198,19 +196,20 @@ def musgy_extract_genome(f_basename="{g1}"):
                 genome_name, genome_path = line.strip().split()
                 if genome_name == f_basename.format(**wildcards):
                     return genome_path
+
     return _f
 
 
 rule musgy_format_input:
     input:
-        g1 = musgy_extract_genome(f_basename="{g1}"),
+        g1=musgy_extract_genome(f_basename="{g1}"),
     output:
-        g1 = "{any}-length_bias_proc/renamed_mugsy/{g1}.fa",
+        g1="{any}-length_bias_proc/renamed_mugsy/{g1}.fa",
     params:
         g1="{g1}",
-        module=MODULE_PATH
+        module=MODULE_PATH,
     wildcard_constraints:
-        suffix="fa|fna|fasta"
+        suffix="fa|fna|fasta",
     conda:
         "PopCOGenT.yml"
     shell:
@@ -228,12 +227,12 @@ rule musgy_format_input:
 
 rule musgy_align:
     input:
-        g1 = "{any}-length_bias_proc/renamed_mugsy/{g1}.fa",
-        g2 = "{any}-length_bias_proc/renamed_mugsy/{g2}.fa",
+        g1="{any}-length_bias_proc/renamed_mugsy/{g1}.fa",
+        g2="{any}-length_bias_proc/renamed_mugsy/{g2}.fa",
     output:
-        maf = "{any}-length_bias_proc/mugsy/{g1}_@_{g2}.maf",
+        maf="{any}-length_bias_proc/mugsy/{g1}_@_{g2}.maf",
     log:
-        maf = "{any}-length_bias_proc/mugsy/{g1}_@_{g2}.mugsy.log",
+        maf="{any}-length_bias_proc/mugsy/{g1}_@_{g2}.mugsy.log",
     conda:
         "PopCOGenT.yml"
     shadow:
